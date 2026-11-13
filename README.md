@@ -29,6 +29,19 @@ Centro Universitário Católica do Tocantins – Bacharelado em Engenharia de So
 - Banco de dados: MySQL
 - Pagamentos: Mercado Pago (Checkout Transparente + Split 1:1, sandbox)
 
+## Estrutura do repositório
+
+```
+frontend/   PWA (telas do cliente, lojista e admin)
+backend/    API Python (catalogo, estoque, pedidos, pagamentos, lojistas, usuarios)
+docs/       Documentação e telas do protótipo
+```
+
+## Configuração
+
+1. Copie `.env.example` para `.env` e preencha as variáveis (MySQL e Mercado Pago sandbox).
+2. Nunca faça commit do `.env` nem de tokens: ele já está no `.gitignore`.
+
 ## Prática sorteada: Pull Request com revisão
 
 A branch `main` é protegida. Cada história de usuário é desenvolvida em uma branch própria (ex.: `feature/US2.1.1-reserva`) e entra por Pull Request com pelo menos uma aprovação de outro integrante.
