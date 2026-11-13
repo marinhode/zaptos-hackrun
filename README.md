@@ -27,7 +27,7 @@ Centro Universitário Católica do Tocantins – Bacharelado em Engenharia de So
 - Front-end: HTML, CSS e JavaScript (PWA, com `<model-viewer>` para 3D/AR)
 - Back-end: Python (API REST)
 - Banco de dados: MySQL
-- Pagamentos: Mercado Pago (Checkout Transparente + Split 1:1, sandbox)
+- Pagamentos: PagBank (API de pedidos com divisão de pagamento entre lojista e shopping, sandbox)
 
 ## Estrutura do repositório
 
@@ -39,7 +39,7 @@ docs/       Documentação e telas do protótipo
 
 ## Configuração
 
-1. Copie `.env.example` para `.env` e preencha as variáveis (MySQL e Mercado Pago sandbox).
+1. Copie `.env.example` para `.env` e preencha as variáveis (MySQL e PagBank sandbox).
 2. Nunca faça commit do `.env` nem de tokens: ele já está no `.gitignore`.
 
 ## Prática sorteada: Pull Request com revisão
