@@ -24,7 +24,7 @@ Centro Universitário Católica do Tocantins – Bacharelado em Engenharia de So
 
 ## Stack
 
-- Front-end: HTML, CSS e JavaScript (PWA, com `<model-viewer>` para 3D/AR)
+- Front-end: HTML, CSS e JavaScript (PWA), com galeria de imagens e medidas dos produtos (3D/AR com `<model-viewer>` fica como evolução futura)
 - Back-end: Python (API REST)
 - Banco de dados: MySQL
 - Pagamentos: PagBank (API de pedidos com divisão de pagamento entre lojista e shopping, sandbox)
