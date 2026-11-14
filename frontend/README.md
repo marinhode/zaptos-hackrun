@@ -23,6 +23,8 @@ js/data.js            dados de exemplo (lojas, produtos, pedidos)
 js/api.js             camada de dados simulada (modo demonstração)
 js/api-remota.js      camada de dados que chama a API Python
 js/app.js             telas e navegação (rotas por hash: #/buscar, #/produto/1 …)
+js/leitor-qr.js       leitura do QR Code pela câmera (tela do lojista)
+js/vendor/jsQR.js     biblioteca jsQR 1.4.0 (Apache-2.0), usada quando o navegador não lê QR sozinho
 img/                  ícone do app e imagem padrão de produto
 ```
 
@@ -40,7 +42,7 @@ img/                  ícone do app e imagem padrão de produto
 | `#/ajuda` | Perguntas frequentes |
 | `#/perfil` | Perfil e acesso à área do lojista |
 | `#/lojista` | Painel do lojista: reservas, estoque e retiradas pendentes |
-| `#/lojista/validar` | Validar o código do cliente e confirmar a retirada |
+| `#/lojista/validar` | Ler o QR Code com a câmera (ou digitar o código) e confirmar a retirada |
 | `#/lojista/produto/novo` | Cadastrar produto (nome, descrição, preço, medidas, estoque) |
 | `#/lojista/produto/:id` | Editar produto, tirar do app e gerenciar as fotos |
 | `#/entrar` | Entrar (cliente ou lojista) |
@@ -53,6 +55,14 @@ img/                  ícone do app e imagem padrão de produto
 - O token fica no `localStorage` (`zaptos-token`) e vai em `Authorization: Bearer`. Quando vence, o app pede para entrar de novo.
 - Administrador: depois de entrar, vai para `admin.html`.
 - No modo demonstração não há login: tudo fica liberado.
+
+## Leitura do QR Code pela câmera
+
+- No painel, "Ler QR Code de retirada" já abre a câmera traseira. Basta apontar para o QR Code do cliente: o app lê, fecha a câmera e mostra o pedido para confirmar a retirada.
+- O navegador usa o leitor nativo (`BarcodeDetector`) quando existe, como no Android e no macOS. Nos outros, usa a jsQR, que só é carregada quando a câmera abre.
+- O QR Code carrega o código longo (UUID) do pedido, e o código curto continua servindo para digitar. A API aceita os dois e recusa código já usado.
+- **A câmera só funciona em HTTPS ou em `localhost`.** Para testar no celular pela rede local (`http://192.168...`), o navegador bloqueia a câmera. Nesse caso use o código digitado ou publique o app com HTTPS.
+- Sem permissão ou sem câmera, aparece uma mensagem e o lojista digita o código.
 
 ## De onde vêm os dados
 
@@ -79,7 +89,6 @@ Para recomeçar a demonstração: **Perfil → Restaurar dados de demonstração
 ## Ainda não incluído
 
 - Pagamento real pelo PagBank: hoje o botão "Pagar" aprova direto.
-- Leitura do QR Code pela câmera: hoje o lojista digita o código.
 - Mapa do shopping: aparece como "em breve".
 - Cadastro de produtos no modo demonstração: só funciona com a API.
 - Recuperar senha.

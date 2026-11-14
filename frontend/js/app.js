@@ -995,7 +995,7 @@
         </section>` : ''}
 
         <div class="pilha pilha--topo">
-          <a class="btn btn--destaque btn--bloco" href="#/lojista/validar">Ler QR Code de retirada</a>
+          <a class="btn btn--destaque btn--bloco" href="#/lojista/validar${window.LeitorQR && window.LeitorQR.disponivel() ? '?camera=1' : ''}">Ler QR Code de retirada</a>
           ${API.criarProduto
             ? '<a class="btn btn--contorno btn--bloco" href="#/lojista/produto/novo">Cadastrar produto</a>'
             : '<button class="btn btn--contorno btn--bloco" type="button" disabled>Cadastrar produto <span class="em-breve">com o servidor</span></button>'}
@@ -1222,16 +1222,23 @@
 
   // ---------- Tela 8: Validar retirada (RF006, RF008) ----------
 
-  async function telaValidar() {
+  async function telaValidar(_, consulta) {
     const lojaId = await lojaAtual();
     const painel = await API.painelLoja(lojaId);
     const codigos = painel.aguardandoRetirada.map((p) => p.codigo);
+    const temCamera = !!(window.LeitorQR && window.LeitorQR.disponivel());
     return {
       titulo: 'Validar retirada',
       subtitulo: `Retirada na ${painel.loja.nome}`,
       aba: null,
       voltar: '#/lojista',
       html: `
+        ${temCamera ? `
+        <button class="btn btn--destaque btn--bloco" type="button" data-camera>
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5h3M20 8V5h-3M4 16v3h3M20 16v3h-3"/><path d="M8 12h8"/></svg>
+          Ler QR Code com a câmera
+        </button>
+        <p class="suave pequeno" style="margin:14px 0 6px;text-align:center">ou digite o código que aparece abaixo do QR Code</p>` : ''}
         <form data-validar novalidate>
           <div class="campo campo--codigo">
             <label for="codigo">Código do cliente</label>
@@ -1242,7 +1249,7 @@
             <button class="btn btn--primario btn--bloco" type="submit">Validar código</button>
           </div>
         </form>
-        <p class="nota">Leitura pela câmera em breve. Por enquanto, digite o código que aparece abaixo do QR Code do cliente.</p>
+        ${temCamera ? '' : '<p class="nota">A leitura pela câmera precisa de conexão segura (HTTPS) e de um aparelho com câmera. Digite o código que aparece abaixo do QR Code do cliente.</p>'}
         ${codigos.length ? `
           <p class="suave pequeno" style="margin-top:16px">Pedidos desta loja esperando retirada (toque para preencher):</p>
           <div class="chips" style="margin-top:8px">
@@ -1257,14 +1264,10 @@
         raiz.querySelectorAll('[data-preencher]').forEach((b) =>
           b.addEventListener('click', () => { campo.value = b.dataset.preencher; campo.focus(); }));
 
-        form.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          if (!campo.value.trim()) {
-            resultado.innerHTML = '<p class="alerta alerta--erro" role="alert">Digite o código do cliente.</p>';
-            return;
-          }
+        // Código digitado (CD-4821-7KQ) ou lido do QR Code (UUID): a API aceita os dois.
+        async function validar(codigo) {
           try {
-            const ped = await API.validarCodigo(lojaId, campo.value);
+            const ped = await API.validarCodigo(lojaId, codigo);
             const nomeCliente = ped.cliente ? ped.cliente.nome : `${API.cliente().nome} ${API.cliente().sobrenome}`;
             const [primeiro, ...resto] = nomeCliente.split(' ');
             const clienteCurto = resto.length ? `${primeiro} ${resto[resto.length - 1][0]}.` : primeiro;
@@ -1294,7 +1297,38 @@
           } catch (err) {
             resultado.innerHTML = `<p class="alerta alerta--erro" role="alert">${esc(err.message)}</p>`;
           }
+          resultado.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          if (!campo.value.trim()) {
+            resultado.innerHTML = '<p class="alerta alerta--erro" role="alert">Digite o código do cliente.</p>';
+            return;
+          }
+          validar(campo.value);
         });
+
+        // Leitura pela câmera
+        const botaoCamera = raiz.querySelector('[data-camera]');
+        if (botaoCamera) {
+          const abrirCamera = () => {
+            resultado.innerHTML = '';
+            const fechar = window.LeitorQR.abrir({
+              aoLer: (texto) => {
+                resultado.innerHTML = '<p class="nota" role="status">QR Code lido. Conferindo…</p>';
+                validar(texto);
+              },
+              aoErro: (msg) => {
+                resultado.innerHTML = `<p class="alerta alerta--erro" role="alert">${esc(msg)}</p>`;
+                campo.focus();
+              },
+            });
+            aoSair(fechar); // fecha a câmera se o lojista sair da tela
+          };
+          botaoCamera.addEventListener('click', abrirCamera);
+          if (consulta.get('camera') === '1') abrirCamera();
+        }
       },
     };
   }
