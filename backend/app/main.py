@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from .config import config
 from .db import conectar, liberar_reservas_expiradas
 from .erros import ErroNegocio
-from .modulos import catalogo, lojista, pedidos, reservas, usuarios
+from .modulos import admin, catalogo, lojista, pedidos, reservas, usuarios
 
 log = logging.getLogger("zaptos")
 
@@ -71,5 +71,5 @@ def saude() -> JSONResponse:
         return JSONResponse({"status": "degradado", "banco": "indisponivel"}, status_code=503)
 
 
-for modulo in (catalogo, reservas, pedidos, lojista, usuarios):
+for modulo in (catalogo, reservas, pedidos, lojista, usuarios, admin):
     app.include_router(modulo.router, prefix="/api")

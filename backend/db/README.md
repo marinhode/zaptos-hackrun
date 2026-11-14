@@ -1,6 +1,6 @@
 # Banco de dados (MySQL)
 
-- `schema.sql`: cria o banco `zaptos` com as tabelas, as chaves, os índices, os gatilhos e a rotina que libera reservas vencidas. **Ele apaga e recria o banco**, então use só em desenvolvimento.
+- `schema.sql`: cria o banco `zaptos` com as tabelas, as chaves, os índices, os gatilhos, a rotina que libera reservas vencidas e o registro das operações administrativas. **Ele apaga e recria o banco**, então use só em desenvolvimento.
 - `seed.sql`: insere os dados de exemplo, alinhados com o protótipo e com `frontend/js/data.js` (veja abaixo).
 
 Requisito: MySQL 8.0.16 ou mais recente (por causa das restrições `CHECK`).
@@ -68,6 +68,23 @@ Cada pedido pago tem um protocolo com dois códigos:
 
 - `codigo`: UUID gravado no QR Code.
 - `codigo_curto`: código que o cliente mostra e o lojista digita, no formato `CD-<id do pedido>-<3 caracteres>` (ex.: `CD-4821-7KQ`). Os caracteres saem de `ABCDEFGHJKMNPQRSTUVWXYZ23456789` (sem I, L, O, 0 e 1, que se confundem). É único (`uq_protocolo_codigo_curto`) e gerado pela API. O banco recusa um código fora do formato ou com o id de outro pedido (`ck_protocolo_codigo_curto`).
+
+## Registro das operações administrativas (RF016)
+
+A tabela `registro_admin` guarda cada alteração feita no painel do administrador (`frontend/admin.html`, rotas `/api/admin/*`):
+
+| Coluna | Conteúdo |
+|--------|----------|
+| `admin_id` | administrador que fez a alteração (FK para `usuario`) |
+| `acao` | `usuario.bloquear`, `usuario.desbloquear`, `loja.editar`, `loja.ativar`, `loja.desativar` ou `categoria.comissao` |
+| `alvo_tipo`, `alvo_id` | o que foi alterado (`usuario`, `loja` ou `categoria`) e o id |
+| `detalhes` | JSON `{"antes": {...}, "depois": {...}}` só com os campos que mudaram, mais o nome ou e-mail do alvo |
+| `criado_em` | quando |
+
+- A API grava a linha **na mesma transação** da alteração: ou as duas entram, ou nenhuma.
+- Pedido que não muda nada (ex.: bloquear quem já está bloqueado) não gera linha.
+- Gatilhos garantem que o autor tem perfil `admin` e que o registro é **somente de inserção**: `UPDATE` e `DELETE` em `registro_admin` são recusados.
+- O seed não insere linhas nesta tabela.
 
 ## Liberação de reservas (15 minutos)
 

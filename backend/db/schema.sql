@@ -280,10 +280,56 @@ CREATE TABLE protocolo_retirada (
   )
 ) ENGINE=InnoDB;
 
+-- ---------------------------------------------------------------------
+-- registro_admin: registro das operacoes administrativas (RF016)
+-- A API grava uma linha a cada alteracao feita no painel do admin, na
+-- MESMA transacao da alteracao. Somente insercao: os gatilhos abaixo
+-- impedem alterar ou apagar linhas.
+--   acao     : ex.: usuario.bloquear, loja.editar, categoria.comissao
+--   alvo_tipo: usuario, loja ou categoria
+--   detalhes : {"antes": {...}, "depois": {...}} com os campos alterados
+-- ---------------------------------------------------------------------
+CREATE TABLE registro_admin (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  admin_id    INT UNSIGNED NOT NULL,
+  acao        VARCHAR(60)  NOT NULL,
+  alvo_tipo   VARCHAR(30)  NOT NULL,
+  alvo_id     INT UNSIGNED NOT NULL,
+  detalhes    JSON         NULL,
+  criado_em   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY ix_registro_admin_criado (criado_em),
+  KEY ix_registro_admin_alvo (alvo_tipo, alvo_id),
+  KEY ix_registro_admin_admin (admin_id),
+  CONSTRAINT fk_registro_admin_usuario FOREIGN KEY (admin_id) REFERENCES usuario (id)
+) ENGINE=InnoDB;
+
 -- =====================================================================
 -- Gatilhos e rotinas
 -- =====================================================================
 DELIMITER $$
+
+-- RF016: so um usuario com perfil 'admin' pode ser autor do registro
+CREATE TRIGGER tg_registro_admin_bi_perfil BEFORE INSERT ON registro_admin
+FOR EACH ROW
+BEGIN
+  IF (SELECT perfil FROM usuario WHERE id = NEW.admin_id) <> 'admin' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'RF016: registro_admin.admin_id deve ser um usuario com perfil admin';
+  END IF;
+END$$
+
+-- RF016: o registro e somente de insercao
+CREATE TRIGGER tg_registro_admin_bu_bloqueio BEFORE UPDATE ON registro_admin
+FOR EACH ROW
+BEGIN
+  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'RF016: o registro administrativo nao pode ser alterado';
+END$$
+
+CREATE TRIGGER tg_registro_admin_bd_bloqueio BEFORE DELETE ON registro_admin
+FOR EACH ROW
+BEGIN
+  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'RF016: o registro administrativo nao pode ser apagado';
+END$$
 
 -- RN004: o dono de uma loja precisa ter perfil 'lojista'
 CREATE TRIGGER tg_loja_bi_lojista BEFORE INSERT ON loja
