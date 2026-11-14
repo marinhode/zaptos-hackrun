@@ -164,6 +164,7 @@
     [/^\/lojista\/produto\/(\d+)$/, telaProdutoLojista],
     [/^\/avisos$/, telaAvisos],
     [/^\/mapa$/, telaMapa],
+    [/^\/admin$/, telaAdminDemo],
   ];
 
   // ---------- sessão e acesso por perfil (RF015, RNF006) ----------
@@ -172,6 +173,7 @@
   const ACESSO = [
     [/^\/(reservar|pedido|pedidos)(\/|$)/, 'cliente'],
     [/^\/lojista(\/|$)/, 'lojista'],
+    [/^\/admin$/, 'admin'],
   ];
 
   // No modo demonstração não há login: tudo fica liberado.
@@ -775,7 +777,13 @@
       subtitulo: `Pedido ${ped.id}`,
       aba: 'pedidos',
       voltar: '#/pedidos',
-      html: `
+      // Comprovante de pagamento (js/comprovante.js), quando disponível
+      html: !retirado && window.ZaptosComprovante ? `
+        ${window.ZaptosComprovante.html({ ...ped, cliente: ped.cliente || { nome: `${API.cliente().nome} ${API.cliente().sobrenome}` } })}
+        <div class="pilha pilha--topo">
+          <a class="btn btn--contorno btn--bloco" href="#/mapa?loja=${ped.loja.id}">Ver no mapa do shopping</a>
+          <a class="btn btn--link" href="#/pedidos">Ver meus pedidos</a>
+        </div>` : `
         <div class="comprovante">
           <h2>${retirado ? `Você retirou ${esc(p.nome)}.` : `Sua ${esc(p.nome)}<br>está separada.`}</h2>
           ${retirado
@@ -792,6 +800,8 @@
           <a class="btn btn--link" href="#/pedidos">Ver meus pedidos</a>
         </div>`,
       montar: (raiz) => {
+        const imprimir = raiz.querySelector('[data-imprimir]');
+        if (imprimir) imprimir.addEventListener('click', () => window.print());
         const alvo = raiz.querySelector('[data-qr]');
         if (!alvo) return;
         if (window.QRCode) {
@@ -914,7 +924,7 @@
       demo: '<a class="btn btn--contorno btn--bloco" href="#/pedidos">Meus pedidos</a><a class="btn btn--contorno btn--bloco" href="#/lojista">Área do lojista</a>',
       cliente: '<a class="btn btn--contorno btn--bloco" href="#/pedidos">Meus pedidos</a>',
       lojista: '<a class="btn btn--contorno btn--bloco" href="#/lojista">Painel da loja</a>',
-      admin: '<a class="btn btn--contorno btn--bloco" href="admin.html">Painel administrativo</a>',
+      admin: `<a class="btn btn--contorno btn--bloco" href="${API.modo === 'demo' ? '#/admin' : 'admin.html'}">Painel administrativo</a>`,
     };
     return {
       titulo: 'Perfil',
@@ -971,7 +981,11 @@
   }
 
   function seguir(usuario, consulta) {
-    if (usuario.perfil === 'admin') { location.href = 'admin.html'; return; }
+    if (usuario.perfil === 'admin') {
+      if (API.modo === 'demo') { ir('#/admin', true); return; } // sem servidor: painel dentro do app
+      location.href = 'admin.html';
+      return;
+    }
     ir(destinoDepoisDoLogin(usuario, consulta), true);
   }
 
@@ -1494,6 +1508,44 @@
           if (consulta.get('camera') === '1') abrirCamera();
         }
       },
+    };
+  }
+
+  // ---------- Painel do administrador na demonstração (sem servidor) ----------
+  async function telaAdminDemo() {
+    if (!API.resumoAdmin) return telaNaoEncontrada();
+    const r = await API.resumoAdmin();
+    return {
+      titulo: 'Administração',
+      subtitulo: 'Capim Dourado Shopping',
+      aba: null,
+      voltar: '#/perfil',
+      html: `
+        <div class="stats">
+          <div class="stat"><strong>${brl(r.total)}</strong><span>vendido (${r.vendas} pagamentos)</span></div>
+          <div class="stat"><strong>${brl(r.comissao)}</strong><span>comissão do shopping (10%)</span></div>
+          <div class="stat"><strong>${brl(r.total - r.comissao)}</strong><span>recebido pelas lojas</span></div>
+          <div class="stat"><strong>${r.lojas}</strong><span>lojas ativas</span></div>
+        </div>
+        <p class="nota">Cada pagamento é dividido na hora: a loja recebe direto e o shopping fica com a comissão.</p>
+        <section class="secao">
+          <h2 class="secao__titulo">Pedidos</h2>
+          <ul class="lista">
+            ${r.pedidos.map((ped) => `
+              <li class="item">
+                <div class="item__info">
+                  <span class="item__nome">Pedido ${ped.id}: ${esc(ped.produto.nome)}</span>
+                  <span class="suave pequeno">${esc(ped.loja.nome)}, ${dataCurta(ped.criadoEm)}</span>
+                  ${badgeStatus(ped.status)}
+                </div>
+                <span class="preco">${brl(ped.valor)}</span>
+              </li>`).join('')}
+          </ul>
+        </section>
+        <div class="pilha pilha--topo">
+          <button class="btn btn--link" type="button" data-sair>Sair da conta</button>
+        </div>`,
+      montar: (raiz) => raiz.querySelector('[data-sair]').addEventListener('click', () => { API.sair(); ir('#/', true); }),
     };
   }
 
