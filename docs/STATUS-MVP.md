@@ -23,7 +23,12 @@ Tudo está sendo juntado na branch `feature/integracao`, que já inclui:
 - `feature/mapa`: mapa do shopping (`frontend/js/mapa.js`).
 - `feature/banco-modelo`: banco (`backend/db/schema.sql` e `seed.sql`).
 
-Os caminhos abaixo são relativos à raiz do repositório. As rotas começam com `/api`. Os testes ficam em `backend/tests/`: **55 testes automáticos passando** (contagem antes do mapa, que é só front-end e foi testado no navegador).
+Sobre a `feature/integracao` vieram mais duas branches, uma em cima da outra:
+
+- `feature/publicar`: publicação com HTTPS (veja a seção **Publicação**).
+- `feature/visual`: visual refinado e logo oficial do shopping. É a branch mais completa: inclui `feature/publicar` e `feature/integracao`.
+
+Os caminhos abaixo são relativos à raiz do repositório. As rotas começam com `/api`. Os testes ficam em `backend/tests/`: 55 testes automáticos passavam na `feature/integracao`; a `feature/publicar` acrescentou 2 (`test_limite_login.py`), totalizando **57**.
 
 ## Requisitos do MVP (seção 10.1)
 
@@ -69,17 +74,40 @@ Itens previstos para a 2ª versão que já funcionam:
 | RF010 | Histórico de compras | **Feito** | `GET /orders` (`pedidos.py`); tela `#/pedidos`. | `test_fluxo.py`: `test_fluxo_reserva_pagamento_retirada` |
 | RF012 | Filtros | **Feito** | `GET /products` com `categoria`, `disponivel`, `preco_max`, `piso` e `loja_id`; tela `#/buscar`. | `test_fluxo.py`: `test_catalogo_e_busca` |
 | RF003 | Suporte/FAQ | **Parcial** | Tela `#/ajuda` com perguntas frequentes e local do atendimento presencial. Sem canal de contato online. | Testado no navegador |
-| RF018 | Mapa do shopping | **Feito** | Tela `#/mapa` (`app.js`, `telaMapa`; desenho em `frontend/js/mapa.js` e `css/mapa.css`): abas Piso 1 e Piso 2, planta em SVG com as lojas numeradas e os serviços (banheiros, elevador, escada rolante, atendimento ao cliente e praça de alimentação). Tocar numa loja mostra piso, número, horário e "Ver produtos". O botão "Ver no mapa do shopping" do comprovante abre `#/mapa?loja=<id>` com a loja em destaque. Tudo também em texto (lista de lojas e legenda) e pelo teclado. A planta é ilustrativa: as lojas ficam na ordem do número, não na posição real. | Testado no navegador (abas, teclado, destaque, texto com HTML escapado, sem animação com `prefers-reduced-motion`) |
+| RF018 | Mapa do shopping | **Parcial** | **Pronto:** tela `#/mapa` (`app.js`, `telaMapa`; `frontend/js/mapa.js` e `css/mapa.css`) com abas Piso 1 e Piso 2, lojas, serviços (banheiros, elevador, escada rolante, atendimento ao cliente e praça de alimentação), cartão da loja com "Ver produtos", lista em texto e uso pelo teclado. O botão "Ver no mapa do shopping" do comprovante abre `#/mapa?loja=<id>` com a loja em destaque. **Em finalização (14/11/2026):** troca do desenho ilustrativo pela **planta real** do shopping (planta mix oficial, Piso 1 e Piso 2), com as lojas de exemplo nas vagas reais LOJA 112 (Casa e Cia), LOJA 130 (Passo Certo) e LOJA 204 (Lar & Estilo), zoom e arrastar, e "Ver no mapa" já focado na loja. Passa a **Feito** quando essa parte entrar na branch. | Versão atual testada no navegador (abas, teclado, destaque, texto com HTML escapado, sem animação com `prefers-reduced-motion`). Planta real: testar quando entrar |
 | — | 3D e realidade aumentada | **Próxima versão** | Aparece como "em breve" na página do produto. Depende de modelos 3D (3ª versão). | — |
+
+## Visual
+
+A `feature/visual` refina o visual sem mudar as cores nem as telas do protótipo: fontes Bricolage Grotesque (títulos e preços) e Atkinson Hyperlegible (texto, leitura fácil), a espiral do capim dourado no destaque do início e uma barra fixa com o preço e **Reservar na loja** na página do produto. Usa o logo oficial do Capim Dourado Shopping, com uso autorizado para a apresentação, e mostra o aviso "Projeto acadêmico do HACKRUN 2026 (Desafio 04). Não é o aplicativo oficial do Capim Dourado Shopping".
+
+## Publicação
+
+O app é publicado com **HTTPS** por um túnel da Cloudflare aberto a partir do computador onde o sistema roda. O link é `https://<palavras>.trycloudflare.com` e **muda cada vez** que o túnel é aberto. O computador precisa ficar ligado e com internet. A API entrega o site no mesmo endereço (`backend/app/main.py`). O passo a passo está em `docs/PUBLICAR.md`.
+
+Antes de abrir o link, sempre nesta ordem: recarregar o banco (`schema.sql` e `seed.sql`) e rodar `backend/scripts/trocar_senhas_demo.py`. A senha do seed está no repositório público; as senhas novas ficam em `contas-demo.local.txt`, fora do git. Recarregar o seed volta a senha antiga, então o script precisa rodar de novo depois de cada recarga.
+
+Proteções do link público:
+
+- **Atalho de teste desligado:** a API sobe com `DEMO_AUTH=0`, e o cabeçalho `X-Usuario-Id` é ignorado.
+- **Limite de login:** 5 senhas erradas em 10 minutos bloqueiam aquele e-mail por um tempo (`modulos/autenticacao.py`; teste `test_bloqueia_depois_de_5_erros`).
+- **Cabeçalhos de segurança:** o site não abre dentro de outro site (`X-Frame-Options`), o navegador não adivinha o tipo dos arquivos (`nosniff`) e a câmera só é liberada para o próprio Zaptos (`Permissions-Policy`); teste `test_front_e_cabecalhos`.
+- **Fotos enviadas** são revalidadas e regravadas pelo servidor.
 
 ## Próximos passos
 
 1. **PagBank em sandbox** (em andamento, 14/11/2026): pedido com `charges.splits`, webhook com validação do `x-authenticity-token` gerando o aviso de pagamento, e PagBank Connect para o lojista (RF004, RF007, RN006, RN011, RF002). Até lá, o pagamento continua **simulado**.
-2. **Prazo para retirada** depois do pagamento, com estorno se o cliente não aparecer (RN002).
-3. **Carrinho com várias lojas**, gerando um pagamento por lojista (RN012).
-4. **Admin:** cadastrar usuários e lojas pelo painel (RF016), o que também resolve o cadastro do lojista (RF002).
-5. **Perfis:** tela para o usuário atualizar os próprios dados e telas do atendente (RF015).
-6. **Avisos fora do app:** push ou e-mail, além do sino (RF007).
-7. **LGPD:** termo de consentimento no cadastro e exclusão da conta a pedido do usuário.
+2. **Fotos dos produtos:** trocar as imagens de exemplo por fotos reais dos produtos da demonstração.
+3. **Testar no celular:** o fluxo completo pelo link HTTPS em Android e iPhone (câmera, mapa e avisos).
+4. **Hospedagem fixa** depois da apresentação: link que não muda e funciona com o computador desligado.
 
-Já feito desde a versão anterior deste documento: avisos dentro do app (RF007), leitura do QR Code pela câmera (RF008) e mapa do shopping (RF018).
+Depois disso:
+
+5. **Prazo para retirada** depois do pagamento, com estorno se o cliente não aparecer (RN002).
+6. **Carrinho com várias lojas**, gerando um pagamento por lojista (RN012).
+7. **Admin:** cadastrar usuários e lojas pelo painel (RF016), o que também resolve o cadastro do lojista (RF002).
+8. **Perfis:** tela para o usuário atualizar os próprios dados e telas do atendente (RF015).
+9. **Avisos fora do app:** push ou e-mail, além do sino (RF007).
+10. **LGPD:** termo de consentimento no cadastro e exclusão da conta a pedido do usuário.
+
+Já feito: avisos dentro do app (RF007), leitura do QR Code pela câmera (RF008), mapa do shopping (RF018, planta real em finalização) e publicação com HTTPS.
