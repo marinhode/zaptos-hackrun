@@ -744,3 +744,16 @@ body.leitor-aberto { overflow: hidden; }
 .casa__galeria:focus-within { outline: 3px solid var(--dourado); outline-offset: 2px; }
 .casa__salvar { color: var(--dourado); font-weight: 700; min-height: 44px; display: inline-flex; align-items: center; }
 .produto__ar .ico { width: 18px; height: 18px; }
+
+/* ---------- Easter Egg: sexta-feira 13 ---------- */
+.ovo13 {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  padding: 24px; text-align: center;
+  background: rgba(10, 18, 17, .92); color: #fff;
+}
+.ovo13__gato { width: 160px; fill: #111; filter: drop-shadow(0 0 12px rgba(201, 162, 74, .6)); animation: gato13 3s ease-in-out infinite alternate; }
+@keyframes gato13 { from { transform: translateX(-40vw); } to { transform: translateX(40vw) scaleX(-1); } }
+.ovo13__texto { max-width: 320px; line-height: 1.5; }
+.ovo13__texto strong { display: block; font-family: var(--fonte-titulo); font-size: 1.5rem; color: var(--dourado); margin-bottom: 6px; }
+@media (prefers-reduced-motion: reduce) { .ovo13__gato { animation: none; } }
