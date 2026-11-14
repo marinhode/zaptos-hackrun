@@ -67,6 +67,15 @@
     const salvar = tela.querySelector('[data-salvar]');
     let fluxo = null;
 
+    // Se a foto do produto não carregar, usa o desenho no lugar (nada de ícone quebrado).
+    const fotoProduto = item.querySelector('img');
+    if (fotoProduto) {
+      fotoProduto.addEventListener('error', () => {
+        fotoProduto.outerHTML = produto.svg;
+        produto.imagem = null;
+      }, { once: true });
+    }
+
     // posição do produto: centro em % do palco; largura em % da largura do palco
     const estado = { x: 50, y: 62, largura: 45 };
     function aplicar() {
