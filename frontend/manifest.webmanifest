@@ -1,0 +1,14 @@
+{
+  "name": "Capim Dourado Shopping · Zaptos",
+  "short_name": "Capim Dourado",
+  "description": "Reserve online e retire hoje nas lojas do Capim Dourado Shopping.",
+  "lang": "pt-BR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3eee5",
+  "theme_color": "#155e5c",
+  "icons": [
+    { "src": "img/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
