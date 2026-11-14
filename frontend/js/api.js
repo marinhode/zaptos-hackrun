@@ -369,7 +369,7 @@
         salvar();
         p = doQr;
       }
-      if (!p) throw erro('NAO_ENCONTRADO', 'Código não encontrado. Confira com o cliente.');
+      if (!p) throw erro('NAO_ENCONTRADO', 'Código não encontrado neste aparelho. Se a compra foi feita em outro celular, leia o QR Code pela câmera.');
       if (p.lojaId !== lojaId) throw erro('OUTRA_LOJA', 'Este pedido é de outra loja.');
       if (p.status === 'retirado') throw erro('JA_RETIRADO', 'Este código já foi usado: o pedido já foi retirado.');
       if (p.status !== 'aprovado') throw erro('NAO_PAGO', 'Este pedido ainda não foi pago.');
