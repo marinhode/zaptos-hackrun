@@ -102,6 +102,7 @@ def test_imagem_e_convertida_e_servida(api, produto):
     assert servida.status_code == 200
     with Image.open(BytesIO(servida.content)) as img:
         assert img.format == "WEBP" and max(img.size) <= 1200   # reduzida
+        assert img.mode == "RGB"                                # PNG todo opaco não ganha alfa
     assert len(servida.content) < 500 * 1024                     # RNF001
 
     # o catálogo público mostra a imagem
@@ -110,6 +111,31 @@ def test_imagem_e_convertida_e_servida(api, produto):
     r = api.delete(f"/api/seller/products/{pid}/images/{imagem['id']}", headers=LOJISTA)
     assert r.status_code == 200 and r.json()["imagens"] == []
     assert not (PASTA_PRODUTOS / imagem["url"].rsplit("/", 1)[1]).exists()
+
+
+def test_png_recortado_mantem_transparencia(api, produto):
+    # produto recortado: fundo transparente e um retângulo opaco no meio
+    png = Image.new("RGBA", (2000, 1500), (0, 0, 0, 0))
+    png.paste((150, 90, 40, 255), (500, 400, 1500, 1100))
+    dados = BytesIO()
+    png.save(dados, "PNG")
+
+    pid = produto["id"]
+    r = api.post(f"/api/seller/products/{pid}/images", headers=LOJISTA,
+                 files={"arquivo": ("recorte.png", dados.getvalue(), "image/png")})
+    assert r.status_code == 201, r.text
+    url = r.json()["imagens"][0]["url"]
+
+    servida = api.get(url)
+    assert servida.status_code == 200
+    assert len(servida.content) < 500 * 1024                       # RNF001
+    with Image.open(BytesIO(servida.content)) as img:
+        assert img.format == "WEBP" and img.size == (1200, 900)   # reduzida, mesma proporção
+        assert img.mode == "RGBA"                                 # guardou o canal alfa
+        assert img.getpixel((0, 0))[3] == 0                       # canto transparente
+        assert img.getpixel((600, 450))[3] == 255                 # produto opaco
+
+    api.delete(f"/api/seller/products/{pid}/images/{r.json()['imagens'][0]['id']}", headers=LOJISTA)
 
 
 def test_arquivo_que_nao_e_imagem_e_recusado(api, produto):
