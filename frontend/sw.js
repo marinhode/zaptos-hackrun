@@ -2,7 +2,7 @@
 // Estratégia "rede primeiro": sempre tenta buscar a versão mais nova e
 // usa o cache só quando o aparelho estiver sem internet.
 
-const CACHE = 'zaptos-v3';
+const CACHE = 'zaptos-v4';
 const ARQUIVOS = [
   './',
   './index.html',
@@ -48,6 +48,7 @@ self.addEventListener('fetch', (evento) => {
         caches.open(CACHE).then((cache) => cache.put(req, copia));
         return resposta;
       })
-      .catch(() => caches.match(req).then((r) => r || caches.match('./index.html')))
+      // sem internet: ignora o "?v=..." para achar o arquivo guardado na instalação
+      .catch(() => caches.match(req, { ignoreSearch: true }).then((r) => r || caches.match('./index.html')))
   );
 });

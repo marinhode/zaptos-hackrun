@@ -1,7 +1,31 @@
 /* Zaptos – PWA do Capim Dourado Shopping
-   Cores e componentes seguem as telas do protótipo (docs/telas). */
+   Cores e componentes seguem as telas do protótipo (docs/telas).
+   Tipografia: Bricolage Grotesque (títulos e preços, traço artesanal como o
+   capim dourado) + Atkinson Hyperlegible (texto, leitura fácil para todas as
+   idades). Ver fonts/LICENCAS.txt. */
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("../fonts/bricolage-variavel.woff2") format("woff2");
+  font-weight: 500 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("../fonts/atkinson-400.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("../fonts/atkinson-700.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
 
 :root {
+  --fonte-titulo: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --fonte-texto: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --teal: #155e5c;
   --teal-escuro: #0e3d3c;
   --dourado: #c9a24a;
@@ -25,7 +49,9 @@
 
   --raio: 16px;
   --raio-p: 10px;
-  --sombra: 0 1px 2px rgba(14, 61, 60, .06), 0 4px 16px rgba(14, 61, 60, .06);
+  /* superfícies planas com contorno fino, em vez da mesma sombra em tudo */
+  --sombra: 0 0 0 1px var(--borda);
+  --sombra-flutuante: 0 -1px 0 var(--borda), 0 -8px 24px rgba(14, 61, 60, .08);
   --tabbar-h: 64px;
 
   color-scheme: light;
@@ -37,16 +63,21 @@ html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
-  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--fonte-texto);
   font-size: 16px;
-  line-height: 1.45;
+  line-height: 1.5;
   color: var(--texto);
   background: var(--areia);
 }
 
 a { color: var(--teal); }
 img { max-width: 100%; display: block; }
-h1, h2, h3 { margin: 0; line-height: 1.2; }
+h1, h2, h3 { margin: 0; line-height: 1.15; font-family: var(--fonte-titulo); font-weight: 700; letter-spacing: -.015em; }
+.preco, .produto__preco, .stat strong, .medidas dd, .barra-reserva__preco strong, .timer strong {
+  font-family: var(--fonte-titulo);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
+}
 p { margin: 0; }
 button, input, select { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--dourado); outline-offset: 2px; border-radius: 6px; }
@@ -99,7 +130,7 @@ button, input, select { font: inherit; color: inherit; }
   background: repeating-linear-gradient(90deg, var(--dourado) 0 14px, var(--teal) 14px 22px);
 }
 .topbar__textos { min-width: 0; }
-.topbar h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -.01em; }
+.topbar h1 { font-size: 1.65rem; font-weight: 750; letter-spacing: -.02em; }
 .topbar p { margin-top: 2px; font-size: .95rem; opacity: .85; }
 .topbar p:empty { display: none; }
 .topbar__logo { width: 38px; height: 38px; flex: none; }
@@ -163,7 +194,15 @@ main:focus { outline: none; }
   color: var(--suave);
   text-decoration: none;
 }
-.tabbar a[aria-current="page"] { color: var(--teal); font-weight: 650; }
+.tabbar a { position: relative; }
+.tabbar a[aria-current="page"] { color: var(--teal-escuro); font-weight: 700; }
+/* traço dourado em cima da aba ativa, como a faixa do cabeçalho */
+.tabbar a[aria-current="page"]::before {
+  content: "";
+  position: absolute; top: -1px; left: 28%; right: 28%;
+  height: 3px; border-radius: 0 0 3px 3px;
+  background: var(--dourado);
+}
 
 .carregando { color: var(--suave); text-align: center; padding: 40px 0; }
 
@@ -191,7 +230,7 @@ main:focus { outline: none; }
 /* ---------- Seções e textos ---------- */
 
 .secao { margin-top: 28px; }
-.secao__titulo { font-size: 1.15rem; font-weight: 700; color: var(--teal-escuro); margin-bottom: 12px; }
+.secao__titulo { font-size: 1.3rem; font-weight: 700; color: var(--teal-escuro); margin-bottom: 14px; }
 .secao__cabecalho { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .secao__cabecalho a { font-weight: 600; }
 
@@ -231,18 +270,40 @@ main:focus { outline: none; }
 
 /* ---------- Destaque ---------- */
 
+/* O elemento marcante: a espiral do capim dourado, grande e cortada pela borda. */
 .hero {
+  position: relative;
+  overflow: hidden;
   margin-top: 20px;
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 26px 24px;
-  border-radius: 20px;
+  display: block;
+  min-height: 176px;
+  padding: 28px 24px;
+  border-radius: 22px;
   background: var(--teal-escuro);
   color: #fff;
   text-decoration: none;
 }
-.hero h2 { font-size: 1.45rem; font-weight: 700; }
-.hero p { margin-top: 8px; opacity: .85; font-size: .95rem; }
-.hero .ico { width: 84px; height: 84px; color: var(--dourado); stroke-width: 1.6; }
+.hero__texto { position: relative; z-index: 1; max-width: 62%; }
+.hero h2 { font-size: 1.9rem; font-weight: 800; line-height: 1.02; letter-spacing: -.03em; }
+.hero p { margin-top: 10px; color: rgba(255, 255, 255, .82); font-size: .95rem; line-height: 1.35; }
+.hero__espiral {
+  position: absolute;
+  right: -46px; top: 50%;
+  width: 230px; height: 230px;
+  transform: translateY(-50%) rotate(-12deg);
+  fill: none;
+  stroke-linecap: round;
+}
+.hero__espiral path { stroke: rgba(201, 162, 74, .35); stroke-width: 9; }
+.hero__espiral .hero__fio {
+  stroke: var(--dourado);
+  stroke-width: 3;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: espiral-trancar 1.6s cubic-bezier(.65, 0, .35, 1) .15s both;
+}
+@keyframes espiral-trancar { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.hero:hover .hero__fio, .hero:focus-visible .hero__fio { stroke: #e2bd66; }
 
 /* ---------- Chips ---------- */
 
@@ -289,7 +350,7 @@ a.item:hover .item__nome { color: var(--teal); }
 
 .thumb {
   flex: none;
-  width: 72px; height: 72px;
+  width: 80px; height: 80px;
   display: grid; place-items: center;
   border-radius: 14px;
   background: var(--areia);
@@ -306,17 +367,15 @@ a.item:hover .item__nome { color: var(--teal); }
 .carrossel { display: flex; gap: 12px; overflow-x: auto; margin: 0 -20px; padding: 2px 20px 8px; scroll-snap-type: x mandatory; scroll-padding-inline: 20px; scrollbar-width: none; }
 .carrossel::-webkit-scrollbar { display: none; }
 .mini {
-  flex: none; width: 150px;
+  flex: none; width: 156px;
   scroll-snap-align: start;
-  padding: 10px;
-  border-radius: var(--raio);
-  background: var(--branco);
-  box-shadow: var(--sombra);
   color: inherit; text-decoration: none;
 }
-.mini .thumb { width: 100%; height: 100px; }
-.mini strong { display: block; margin-top: 10px; font-size: .95rem; }
-.mini span { font-size: .85rem; }
+.mini .thumb { width: 100%; height: 132px; border-radius: 16px; }
+.mini .thumb .ico { width: 52px; height: 52px; }
+.mini strong { display: block; margin-top: 10px; font-size: 1rem; line-height: 1.25; }
+.mini span { display: block; margin-top: 2px; font-family: var(--fonte-titulo); font-weight: 650; color: var(--teal-escuro); font-size: .95rem; }
+.mini:hover strong { color: var(--teal); }
 
 /* ---------- Badges ---------- */
 
@@ -382,14 +441,18 @@ a.item:hover .item__nome { color: var(--teal); }
 .timer strong { font-variant-numeric: tabular-nums; font-size: 1.15rem; }
 
 .bloco { margin-top: 24px; }
-.bloco h2 { font-size: 1.15rem; color: var(--teal-escuro); margin-bottom: 6px; }
+.bloco { padding-top: 22px; border-top: 1px solid var(--borda); }
+.bloco h2 { font-size: 1.2rem; color: var(--teal-escuro); margin-bottom: 6px; }
 
 /* ---------- Produto ---------- */
 
+/* foto ocupa a largura toda da tela, colada no cabeçalho */
+.galeria { margin: -28px -20px 0; }
+.galeria__miniaturas { padding: 0 20px; }
 .galeria__principal {
   position: relative;
-  aspect-ratio: 4 / 3;
-  border-radius: 20px;
+  aspect-ratio: 1 / 1;
+  border-radius: 0 0 28px 28px;
   background: var(--areia);
   display: grid; place-items: center;
   overflow: hidden;
@@ -418,11 +481,34 @@ a.item:hover .item__nome { color: var(--teal); }
 .vista--2 { background: #e8dfcf; }
 .vista--2 .ico { transform: scale(1.6) translate(10%, 8%); }
 
-.produto__cabecalho { margin-top: 20px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.produto__cabecalho h2 { font-size: 1.5rem; color: var(--teal-escuro); }
-.produto__preco { font-size: 1.5rem; font-weight: 700; color: var(--teal-escuro); white-space: nowrap; }
-.produto__loja { margin-top: 4px; display: inline-block; }
-.avaliacao { margin-top: 10px; display: flex; align-items: center; gap: 6px; font-size: .95rem; }
+.produto__cabecalho { margin-top: 22px; }
+.produto__cabecalho h2 { font-size: 1.75rem; font-weight: 750; color: var(--teal-escuro); }
+.produto__preco { margin-top: 4px; font-size: 2.2rem; font-weight: 800; line-height: 1.05; color: var(--teal-escuro); }
+.produto__onde { margin-top: 8px; color: var(--suave); }
+.produto__onde a { color: var(--teal); font-weight: 700; }
+.produto__selos { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.produto__selos .avaliacao { margin: 0; }
+.produto__ar { margin-top: 18px; }
+.avaliacao { margin-top: 10px; display: flex; align-items: center; gap: 6px; font-size: .95rem; color: var(--suave); }
+
+/* barra fixa com o preço e o botão principal (Tela 3 do protótipo) */
+.barra-reserva {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 9;
+  width: 100%;
+  max-width: 480px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 12px 20px;
+  background: var(--creme);
+  box-shadow: var(--sombra-flutuante);
+}
+.barra-reserva__preco { display: flex; flex-direction: column; line-height: 1.2; }
+.barra-reserva__preco strong { font-size: 1.35rem; font-weight: 800; color: var(--teal-escuro); }
+.barra-reserva .btn { flex: 1; max-width: 220px; }
+main:has(.barra-reserva) { padding-bottom: calc(var(--tabbar-h) + 112px + env(safe-area-inset-bottom, 0px)); }
 .avaliacao .estrela { color: var(--dourado); }
 
 .medidas {

@@ -103,6 +103,13 @@ async def cabecalhos_de_seguranca(request, chamar_proximo):
     resposta.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     resposta.headers.setdefault("X-Frame-Options", "DENY")
     resposta.headers.setdefault("Permissions-Policy", "camera=(self), microphone=(), geolocation=()")
+    caminho = request.url.path
+    if caminho.endswith(".woff2"):
+        # fontes não mudam: o navegador pode guardar por 1 ano
+        resposta.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
+    elif not caminho.startswith(("/api/", "/uploads/")):
+        # site (HTML, CSS, JS): sempre confere se há versão nova
+        resposta.headers.setdefault("Cache-Control", "no-cache")
     return resposta
 
 

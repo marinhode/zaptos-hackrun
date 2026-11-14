@@ -394,11 +394,15 @@
         ${campoBusca('')}
 
         <a class="hero" href="#/buscar?disp=1">
-          <div>
+          <div class="hero__texto">
             <h2>Reserve agora,<br>retire hoje.</h2>
-            <p>Seu produto separado na loja</p>
+            <p>Seu produto fica separado na loja por você.</p>
           </div>
-          ${icone('poltrona')}
+          <svg class="hero__espiral" viewBox="0 0 200 200" aria-hidden="true">
+            <!-- espiral do capim dourado (a mesma do logo), em fios trançados -->
+            <path pathLength="1" d="M100 100a6 6 0 1 1 6 6 14 14 0 1 1 7-20 24 24 0 1 1-37-6 34 34 0 1 1 57 33 46 46 0 1 1-78-49 58 58 0 1 1 105 39 70 70 0 1 1-118-82"/>
+            <path class="hero__fio" pathLength="1" d="M100 100a6 6 0 1 1 6 6 14 14 0 1 1 7-20 24 24 0 1 1-37-6 34 34 0 1 1 57 33 46 46 0 1 1-78-49 58 58 0 1 1 105 39 70 70 0 1 1-118-82"/>
+          </svg>
         </a>
 
         <section class="secao" aria-labelledby="t-cat">
@@ -565,21 +569,25 @@
         </div>
 
         <div class="produto__cabecalho">
-          <div>
-            <h2>${esc(p.nome)}</h2>
-            <a class="produto__loja" href="#/loja/${p.loja.id}">${esc(p.loja.nome)}</a>
-          </div>
-          <span class="produto__preco">${brl(p.preco)}</span>
+          <h2>${esc(p.nome)}</h2>
+          <p class="produto__preco">${brl(p.preco)}</p>
+          <p class="produto__onde">
+            <a href="#/loja/${p.loja.id}">${esc(p.loja.nome)}</a>, piso ${esc(p.loja.piso)}
+          </p>
+          <div class="produto__selos">${badgeEstoque(p.estoque)}${avaliacao(p)}</div>
         </div>
-        ${avaliacao(p)}
-        <p style="margin-top:10px">${badgeEstoque(p.estoque)}</p>
 
-        <div class="pilha pilha--topo">
-          <button class="btn btn--destaque btn--bloco" type="button" data-reservar ${esgotado ? 'disabled' : ''}>
-            ${esgotado ? 'Esgotado no momento' : 'Reservar na loja'}
-          </button>
-          <button class="btn btn--contorno btn--bloco" type="button" disabled>
-            Ver na sua casa <span class="em-breve">em breve</span>
+        <button class="btn btn--contorno btn--pequeno produto__ar" type="button" disabled>
+          Ver na sua casa <span class="em-breve">em breve</span>
+        </button>
+
+        <div class="barra-reserva">
+          <div class="barra-reserva__preco">
+            <span class="suave pequeno">${esgotado ? 'Sem unidades agora' : 'Retire hoje na loja'}</span>
+            <strong>${brl(p.preco)}</strong>
+          </div>
+          <button class="btn btn--destaque" type="button" data-reservar ${esgotado ? 'disabled' : ''}>
+            ${esgotado ? 'Esgotado' : 'Reservar na loja'}
           </button>
         </div>
 

@@ -1,0 +1,12 @@
+Fontes usadas no Zaptos (subconjunto "latin", baixado do Google Fonts):
+
+- Bricolage Grotesque (títulos e preços)
+  Licença: SIL Open Font License 1.1 — https://openfontlicense.org
+  Projeto: https://github.com/ateliertriay/bricolage
+
+- Atkinson Hyperlegible (texto)
+  Licença: SIL Open Font License 1.1 — https://openfontlicense.org
+  Projeto: Braille Institute — https://www.brailleinstitute.org/freefont/
+
+A OFL permite usar, embutir e redistribuir as fontes, inclusive em projetos
+comerciais, desde que não sejam vendidas sozinhas.
