@@ -6,7 +6,7 @@
   'use strict';
 
   const API = ((window.ZAPTOS_CONFIG && window.ZAPTOS_CONFIG.apiUrl) || 'http://localhost:8000/api').replace(/\/$/, '');
-  const ADMIN_DEMO = 3; // admin do seed; só funciona com DEMO_AUTH=1 na API
+  const CHAVE_TOKEN = 'zaptos-token'; // salvo pela tela de login (index.html#/entrar)
   const ABAS = ['resumo', 'usuarios', 'lojas', 'categorias', 'registro'];
 
   const $ = (sel) => document.querySelector(sel);
@@ -14,7 +14,7 @@
   const abasNav = $('#adm-abas');
 
   let eu = null;          // admin logado (GET /me)
-  let semAcesso = false;  // recebeu 401/403: mostra "Entre como administrador"
+  let semAcesso = false;  // sem token, 401 ou 403: mostra a tela de acesso
   let geracao = 0;        // descarta respostas de uma aba que já foi trocada
 
   // ---------------------------------------------------------------------
@@ -86,13 +86,12 @@
     }
   }
 
-  function cabecalhos(extra) {
-    const h = { ...extra };
-    let token = null;
-    try { token = localStorage.getItem('zaptos-token'); } catch (_) { /* navegador sem localStorage */ }
-    if (token) h.Authorization = `Bearer ${token}`;
-    else h['X-Usuario-Id'] = String(ADMIN_DEMO);
-    return h;
+  function lerToken() {
+    try { return localStorage.getItem(CHAVE_TOKEN); } catch (_) { return null; /* navegador sem localStorage */ }
+  }
+
+  function apagarToken() {
+    try { localStorage.removeItem(CHAVE_TOKEN); } catch (_) { /* navegador sem localStorage */ }
   }
 
   async function chamar(caminho, { metodo = 'GET', corpo, params } = {}) {
@@ -102,19 +101,32 @@
       for (const [k, v] of Object.entries(params)) if (v !== '' && v !== null && v !== undefined) q.set(k, v);
       if (q.toString()) url += `?${q}`;
     }
+    const token = lerToken();
+    if (!token) {
+      mostrarEntrar();
+      throw new ErroApi(401, 'SEM_ACESSO', 'Entre como administrador.');
+    }
+    const headers = { Authorization: `Bearer ${token}` };
+    if (corpo !== undefined) headers['Content-Type'] = 'application/json';
     let r;
     try {
       r = await fetch(url, {
         method: metodo,
-        headers: cabecalhos(corpo !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        headers,
         body: corpo !== undefined ? JSON.stringify(corpo) : undefined,
       });
     } catch (_) {
       throw new ErroApi(0, 'SEM_CONEXAO', `Não foi possível falar com a API (${API}). Confira se ela está rodando.`);
     }
-    if (r.status === 401 || r.status === 403) {
+    if (r.status === 401) {
+      // Sessão expirada ou conta bloqueada: o token não serve mais.
+      apagarToken();
       mostrarEntrar();
-      throw new ErroApi(r.status, 'SEM_ACESSO', 'Entre como administrador.');
+      throw new ErroApi(401, 'SEM_ACESSO', 'Entre como administrador.');
+    }
+    if (r.status === 403) {
+      mostrarSemPermissao();
+      throw new ErroApi(403, 'SEM_ACESSO', 'Esta área é só para a administração do shopping.');
     }
     if (r.status === 204) return null;
     let dados = null;
@@ -160,19 +172,47 @@
     });
   }
 
-  function mostrarEntrar() {
+  /** Troca o painel por uma tela de acesso (sem login ou sem permissão). */
+  function telaAcesso(titulo, texto, acao) {
     if (semAcesso) return;
     semAcesso = true;
     geracao += 1;
     abasNav.hidden = true;
     $('#adm-usuario').textContent = '';
+    $('#adm-sair').hidden = true;
+    for (const d of document.querySelectorAll('dialog[open]')) d.close();
+    const titulo2 = el('h2', { id: 'tit-acesso', tabindex: '-1', text: titulo });
+    main.removeAttribute('aria-labelledby');
     main.replaceChildren(
-      el('section', { class: 'adm-entrar' },
-        el('h2', { text: 'Entre como administrador' }),
-        el('p', { text: 'Esta área é só para a administração do shopping. Entre com uma conta de administrador para continuar.' }),
-        el('a', { class: 'btn btn--primario', href: 'index.html#/entrar', text: 'Entrar' }),
-      ),
+      el('section', { class: 'adm-entrar', 'aria-labelledby': 'tit-acesso' }, titulo2, el('p', { text: texto }), acao),
     );
+    titulo2.focus();
+  }
+
+  function mostrarEntrar() {
+    telaAcesso(
+      'Entre como administrador',
+      'Esta área é só para a administração do shopping. Entre com uma conta de administrador para continuar.',
+      el('a', { class: 'btn btn--primario', href: 'index.html#/entrar?volta=admin', text: 'Entrar' }),
+    );
+  }
+
+  function mostrarSemPermissao() {
+    telaAcesso(
+      'Esta área é só para a administração do shopping',
+      'A conta que você usou não é de administrador. Entre com uma conta de administrador para continuar.',
+      el('button', {
+        type: 'button',
+        class: 'btn btn--primario',
+        text: 'Entrar com outra conta',
+        onclick: () => { apagarToken(); location.href = 'index.html#/entrar'; },
+      }),
+    );
+  }
+
+  function sair() {
+    apagarToken();
+    location.href = 'index.html';
   }
 
   // ---------------------------------------------------------------------
@@ -559,6 +599,8 @@
   // ---------------------------------------------------------------------
 
   async function iniciar() {
+    $('#adm-sair').addEventListener('click', sair);
+    if (!lerToken()) { mostrarEntrar(); return; } // sem token: nem chama a API
     try {
       eu = await chamar('/me');
     } catch (erro) {
@@ -566,8 +608,9 @@
       if (!semAcesso) main.replaceChildren(el('p', { class: 'adm-carregando', text: 'Não foi possível carregar o painel.' }));
       return;
     }
-    if (!eu || eu.perfil !== 'admin') { mostrarEntrar(); return; }
+    if (!eu || eu.perfil !== 'admin') { mostrarSemPermissao(); return; }
     $('#adm-usuario').textContent = `${eu.nome} · administrador`;
+    $('#adm-sair').hidden = false;
     abasNav.hidden = false;
     mostrarAba();
   }

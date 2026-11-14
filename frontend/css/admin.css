@@ -18,6 +18,18 @@ body.adm {
 .adm-topo__marca strong { display: block; font-size: 1.1rem; }
 .adm-topo__marca span { display: block; font-size: .85rem; color: rgba(255, 255, 255, .75); }
 .adm-topo__usuario { font-size: .9rem; color: rgba(255, 255, 255, .85); text-align: right; }
+.adm-topo__conta { display: flex; align-items: center; gap: 12px; }
+.adm-sair {
+  min-height: 40px; padding: 6px 16px;
+  background: transparent; color: #fff;
+  border: 2px solid rgba(255, 255, 255, .7); border-radius: 12px;
+  font: inherit; font-size: .95rem; font-weight: 600;
+  cursor: pointer;
+}
+.adm-sair:hover { background: rgba(255, 255, 255, .12); border-color: #fff; }
+.adm-sair:focus-visible { outline: 3px solid var(--dourado); outline-offset: 2px; }
+.adm-sair[hidden] { display: none; }
+.adm-entrar h2:focus { outline: none; }
 
 /* ---------- Abas ---------- */
 
