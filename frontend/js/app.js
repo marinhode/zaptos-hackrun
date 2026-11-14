@@ -579,8 +579,9 @@
           <div class="produto__selos">${badgeEstoque(p.estoque)}${avaliacao(p)}</div>
         </div>
 
-        <button class="btn btn--contorno btn--pequeno produto__ar" type="button" disabled>
-          Ver na sua casa <span class="em-breve">em breve</span>
+        <button class="btn btn--contorno btn--pequeno produto__ar" type="button" data-ver-em-casa>
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7v9H3z"/><path d="M8 20v-5h8v5"/></svg>
+          Ver na sua casa
         </button>
 
         <div class="barra-reserva">
@@ -625,6 +626,18 @@
         }));
         const reservar = raiz.querySelector('[data-reservar]');
         reservar.addEventListener('click', () => ir(`#/reservar/${p.id}`));
+
+        // "Ver na sua casa": 1ª foto do produto (de preferência PNG sem fundo) ou o desenho dele
+        raiz.querySelector('[data-ver-em-casa]').addEventListener('click', () => {
+          if (!window.VerEmCasa) return;
+          const fechar = window.VerEmCasa.abrir({
+            nome: p.nome,
+            imagem: p.imagens && p.imagens.length ? p.imagens[0] : null,
+            svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="rgba(243,238,229,.55)" stroke="#0e3d3c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${ICONES[p.icone] || ICONES.poltrona}</svg>`,
+            medidas: p.medidas,
+          });
+          aoSair(fechar); // fecha a câmera se sair da tela
+        });
       },
     };
   }
