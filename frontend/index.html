@@ -8,7 +8,7 @@
   <title>Capim Dourado · Zaptos</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="img/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/styles.css?v=9">
 </head>
 <body>
   <a class="pular" href="#conteudo">Pular para o conteúdo</a>
@@ -17,14 +17,17 @@
       <button class="topbar__voltar" id="btn-voltar" type="button" aria-label="Voltar" hidden>
         <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
       </button>
-      <svg class="topbar__logo" id="logo" viewBox="0 0 32 32" aria-hidden="true" hidden>
-        <circle cx="16" cy="16" r="15" fill="#c9a24a"/>
-        <path d="M16 16a2 2 0 1 1 2 2 4 4 0 1 1 2-6.5A6 6 0 1 1 11 9" fill="none" stroke="#0e3d3c" stroke-width="2.2" stroke-linecap="round"/>
-      </svg>
+      <!-- logo oficial do Capim Dourado Shopping (uso autorizado para a apresentação) -->
+      <img class="topbar__marca" id="logo" src="img/logo-capim-dourado.png" width="132" height="70"
+           alt="Capim Dourado Shopping" hidden>
       <div class="topbar__textos">
         <h1 id="titulo">Capim Dourado</h1>
         <p id="subtitulo"></p>
       </div>
+      <a class="topbar__avisos" id="btn-avisos" href="#/avisos" aria-label="Avisos" hidden>
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>
+        <span class="topbar__contador" id="contador-avisos" hidden></span>
+      </a>
     </header>
 
     <p class="aviso-modo" id="aviso-modo" role="status" hidden></p>
@@ -58,10 +61,12 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
-  <script src="js/config.js" defer></script>
-  <script src="js/data.js" defer></script>
-  <script src="js/api.js" defer></script>
-  <script src="js/api-remota.js" defer></script>
-  <script src="js/app.js" defer></script>
+  <script src="js/config.js?v=9" defer></script>
+  <script src="js/data.js?v=9" defer></script>
+  <script src="js/api.js?v=9" defer></script>
+  <script src="js/api-remota.js?v=9" defer></script>
+  <script src="js/leitor-qr.js?v=9" defer></script>
+  <script src="js/ver-em-casa.js?v=9" defer></script>
+  <script src="js/app.js?v=9" defer></script>
 </body>
 </html>

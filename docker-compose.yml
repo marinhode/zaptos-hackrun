@@ -1,0 +1,73 @@
+# Sobe banco, API e front-end com um comando: scripts\iniciar.ps1
+# (ou: docker compose up -d --build)
+#
+# Senhas e chaves vêm do .env da raiz (copie de .env.example). Nada de senha aqui.
+# Endereços: app http://localhost:5173 · API http://localhost:8000/docs
+
+name: zaptos-local
+
+services:
+  db:
+    image: mysql:8.4
+    command: ["--event-scheduler=ON"]
+    environment:
+      TZ: America/Araguaina
+      # Dentro do Docker a API entra como root, com a senha DB_PASSWORD do .env.
+      # A porta do banco não é publicada: só a API (na rede interna) acessa.
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?Preencha DB_PASSWORD no .env (veja .env.example)}
+    volumes:
+      - dados-mysql:/var/lib/mysql
+      # Só rodam na PRIMEIRA criação do volume, nesta ordem:
+      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./backend/db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+      # Usado por scripts\recarregar-banco.ps1
+      - ./backend/db:/zaptos-db:ro
+    healthcheck:
+      # Pela rede (127.0.0.1): só responde depois que os scripts iniciais terminam.
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    restart: unless-stopped
+
+  api:
+    build: ./backend
+    env_file: .env
+    environment:
+      TZ: America/Araguaina
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_NAME: zaptos
+      DB_USER: root
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${API_PORTA:-8000}:8000"
+    volumes:
+      # Fotos enviadas pelos lojistas ficam na pasta do projeto.
+      - ./backend/uploads:/srv/backend/uploads
+    restart: unless-stopped
+
+  web:
+    image: nginx:alpine
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    configs:
+      # O nginx não conhece .webmanifest; o PWA precisa do tipo certo.
+      - source: tipos-pwa
+        target: /etc/nginx/conf.d/tipos-pwa.conf
+    ports:
+      - "${WEB_PORTA:-5173}:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+configs:
+  tipos-pwa:
+    content: |
+      types { application/manifest+json webmanifest; }
+
+volumes:
+  dados-mysql:

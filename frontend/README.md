@@ -23,6 +23,8 @@ js/data.js            dados de exemplo (lojas, produtos, pedidos)
 js/api.js             camada de dados simulada (modo demonstração)
 js/api-remota.js      camada de dados que chama a API Python
 js/app.js             telas e navegação (rotas por hash: #/buscar, #/produto/1 …)
+js/leitor-qr.js       leitura do QR Code pela câmera (tela do lojista)
+js/vendor/jsQR.js     biblioteca jsQR 1.4.0 (Apache-2.0), usada quando o navegador não lê QR sozinho
 img/                  ícone do app e imagem padrão de produto
 ```
 
@@ -40,13 +42,50 @@ img/                  ícone do app e imagem padrão de produto
 | `#/ajuda` | Perguntas frequentes |
 | `#/perfil` | Perfil e acesso à área do lojista |
 | `#/lojista` | Painel do lojista: reservas, estoque e retiradas pendentes |
-| `#/lojista/validar` | Validar o código do cliente e confirmar a retirada |
+| `#/lojista/validar` | Ler o QR Code com a câmera (ou digitar o código) e confirmar a retirada |
+| `#/lojista/produto/novo` | Cadastrar produto (nome, descrição, preço, medidas, estoque) |
+| `#/lojista/produto/:id` | Editar produto, tirar do app e gerenciar as fotos |
+| `#/avisos` | Avisos de pagamento, retirada e reserva expirada (sino no cabeçalho com o número de não lidos) |
+| `#/mapa?loja=:id` | Mapa do shopping com a loja em destaque. O desenho fica em `js/mapa.js` (`window.ZaptosMapa`), carregado só nessa tela; sem ele, mostra "Mapa em breve" com a localização da loja |
+| `#/entrar` | Entrar (cliente ou lojista) |
+| `#/cadastro` | Criar conta de cliente |
+
+## Login
+
+- Reserva, pedidos e comprovante exigem login de **cliente**; o painel exige login de **lojista**. Sem login, o app leva para "Entrar" e, depois, volta para a tela onde a pessoa estava.
+- Com o perfil errado (ex.: cliente abrindo o painel), aparece "Área restrita" com a opção de entrar com outra conta.
+- O token fica no `localStorage` (`zaptos-token`) e vai em `Authorization: Bearer`. Quando vence, o app pede para entrar de novo.
+- Administrador: depois de entrar, vai para `admin.html`.
+- No modo demonstração não há login: tudo fica liberado.
+
+## Mapa com a planta real
+
+O mapa usa a **Planta Mix oficial** do shopping. Ela é um documento interno, por isso as imagens **não ficam no repositório**: cada pessoa gera na própria máquina a partir do PDF.
+
+```bash
+pip install pymupdf pillow
+python scripts/gerar_mapa.py "C:/caminho/2026_11_CDS_MIX.pdf"
+```
+
+O script gera `frontend/img/mapa/piso-1.webp`, `piso-2.webp` e `frontend/data/mapa-planta.json`.
+
+- **Posições:** vêm dos rótulos "LOJA 112", "LOJA 204"… do próprio PDF, sem marcar nada à mão.
+- **Lojas do app:** aparecem pelo número da loja no banco (Casa e Cia = 112, Passo Certo = 130, Lar & Estilo = 204). Elas ocupam vagas reais da planta.
+- **Sem esses arquivos:** o mapa volta para o desenho esquemático.
+
+## Leitura do QR Code pela câmera
+
+- No painel, "Ler QR Code de retirada" já abre a câmera traseira. Basta apontar para o QR Code do cliente: o app lê, fecha a câmera e mostra o pedido para confirmar a retirada.
+- O navegador usa o leitor nativo (`BarcodeDetector`) quando existe, como no Android e no macOS. Nos outros, usa a jsQR, que só é carregada quando a câmera abre.
+- O QR Code carrega o código longo (UUID) do pedido, e o código curto continua servindo para digitar. A API aceita os dois e recusa código já usado.
+- **A câmera só funciona em HTTPS ou em `localhost`.** Para testar no celular pela rede local (`http://192.168...`), o navegador bloqueia a câmera. Nesse caso use o código digitado ou publique o app com HTTPS.
+- Sem permissão ou sem câmera, aparece uma mensagem e o lojista digita o código.
 
 ## De onde vêm os dados
 
 `js/config.js` escolhe o modo:
 
-- **`modo: 'api'`** (padrão): usa a API Python em `apiUrl` (`http://localhost:8000/api`). A API precisa estar rodando com `DEMO_AUTH=1`, ver `backend/README.md`. O cliente e o lojista usados nas chamadas também ficam nesse arquivo, até o login existir.
+- **`modo: 'api'`** (padrão): usa a API Python em `apiUrl` (`http://localhost:8000/api`). Veja `backend/README.md` para subir a API.
 - **`modo: 'demo'`**: usa só os dados simulados deste navegador.
 
 Se o modo for `api` e o servidor estiver fora do ar, o app mostra um aviso e passa sozinho para a demonstração. Isso serve de plano B na apresentação.
@@ -66,8 +105,7 @@ Para recomeçar a demonstração: **Perfil → Restaurar dados de demonstração
 
 ## Ainda não incluído
 
-- Login: o usuário vem de `js/config.js`.
 - Pagamento real pelo PagBank: hoje o botão "Pagar" aprova direto.
-- Leitura do QR Code pela câmera: hoje o lojista digita o código.
-- Login, cadastro de produtos e mapa do shopping: aparecem como "em breve".
+- Cadastro de produtos no modo demonstração: só funciona com a API.
+- Recuperar senha.
 - 3D/AR: evolução futura, conforme a documentação.

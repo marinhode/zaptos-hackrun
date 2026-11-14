@@ -1,0 +1,123 @@
+"""Ponto de entrada da API do Zaptos.
+
+Rodar (na pasta backend):  uvicorn app.main:app --reload
+Documentação automática:   http://localhost:8000/docs
+"""
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from .config import config
+from .db import conectar, liberar_reservas_expiradas
+from .erros import ErroNegocio
+from .modulos import admin, catalogo, lojista, pedidos, reservas, usuarios
+
+log = logging.getLogger("zaptos")
+
+
+async def _rotina_liberacao() -> None:
+    """RN010: a cada minuto devolve ao estoque as reservas vencidas."""
+    while True:
+        try:
+            await asyncio.to_thread(liberar_reservas_expiradas)
+        except Exception:  # banco fora do ar não pode derrubar a API
+            log.warning("Não foi possível liberar reservas vencidas agora.", exc_info=True)
+        await asyncio.sleep(config.intervalo_liberacao_s)
+
+
+@asynccontextmanager
+async def ciclo_de_vida(_: FastAPI):
+    tarefa = asyncio.create_task(_rotina_liberacao())
+    yield
+    tarefa.cancel()
+
+
+app = FastAPI(
+    title="Zaptos API",
+    version="0.1.0",
+    description="Reserva online e retirada na loja do Capim Dourado Shopping.",
+    lifespan=ciclo_de_vida,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=list(config.cors_origins),
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Content-Type", "Authorization", "X-Usuario-Id"],
+)
+
+
+@app.exception_handler(ErroNegocio)
+async def tratar_erro_negocio(_, erro: ErroNegocio) -> JSONResponse:
+    return JSONResponse(status_code=erro.status, content={"codigo": erro.codigo, "mensagem": erro.mensagem})
+
+
+@app.get("/api/health", tags=["Status"])
+def saude() -> JSONResponse:
+    try:
+        con = conectar()
+        try:
+            with con.cursor() as cur:
+                cur.execute("SELECT 1")
+        finally:
+            con.close()
+        return JSONResponse({"status": "ok", "banco": "ok"})
+    except Exception:
+        log.warning("Banco indisponível no health check.", exc_info=True)
+        return JSONResponse({"status": "degradado", "banco": "indisponivel"}, status_code=503)
+
+
+for modulo in (catalogo, reservas, pedidos, lojista, usuarios, admin):
+    app.include_router(modulo.router, prefix="/api")
+
+# Login e cadastro (RF002, RF015)
+from .modulos import autenticacao  # noqa: E402
+
+app.include_router(autenticacao.router, prefix="/api")
+
+# Cadastro de produtos pelo lojista e imagens enviadas (servidas em /uploads)
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+
+from .imagens import PASTA_UPLOADS  # noqa: E402
+from .modulos import produtos_lojista  # noqa: E402
+
+app.include_router(produtos_lojista.router, prefix="/api")
+PASTA_UPLOADS.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=PASTA_UPLOADS), name="uploads")
+
+# Avisos dentro do app (RF007)
+from .modulos import notificacoes  # noqa: E402
+
+app.include_router(notificacoes.router, prefix="/api")
+
+
+# Cabeçalhos de segurança em todas as respostas (o site fica público no túnel HTTPS).
+@app.middleware("http")
+async def cabecalhos_de_seguranca(request, chamar_proximo):
+    resposta = await chamar_proximo(request)
+    resposta.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resposta.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    resposta.headers.setdefault("X-Frame-Options", "DENY")
+    resposta.headers.setdefault("Permissions-Policy", "camera=(self), microphone=(), geolocation=()")
+    caminho = request.url.path
+    if caminho.endswith(".woff2"):
+        # fontes não mudam: o navegador pode guardar por 1 ano
+        resposta.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
+    elif not caminho.startswith(("/api/", "/uploads/")):
+        # site (HTML, CSS, JS): sempre confere se há versão nova
+        resposta.headers.setdefault("Cache-Control", "no-cache")
+    return resposta
+
+
+# O front-end (frontend/) servido pela própria API: um endereço só para o app e a
+# API, o que permite publicar tudo com um único link HTTPS. Fica por ÚLTIMO para
+# não esconder as rotas /api e /uploads.
+from .config import RAIZ_REPO  # noqa: E402
+
+PASTA_FRONT = RAIZ_REPO / "frontend"
+if PASTA_FRONT.is_dir():
+    app.mount("/", StaticFiles(directory=PASTA_FRONT, html=True), name="front")
