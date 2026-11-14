@@ -58,6 +58,21 @@ img/                  ícone do app e imagem padrão de produto
 - Administrador: depois de entrar, vai para `admin.html`.
 - No modo demonstração não há login: tudo fica liberado.
 
+## Mapa com a planta real
+
+O mapa usa a **Planta Mix oficial** do shopping. Ela é um documento interno, por isso as imagens **não ficam no repositório**: cada pessoa gera na própria máquina a partir do PDF.
+
+```bash
+pip install pymupdf pillow
+python scripts/gerar_mapa.py "C:/caminho/2026_11_CDS_MIX.pdf"
+```
+
+O script gera `frontend/img/mapa/piso-1.webp`, `piso-2.webp` e `frontend/data/mapa-planta.json`.
+
+- **Posições:** vêm dos rótulos "LOJA 112", "LOJA 204"… do próprio PDF, sem marcar nada à mão.
+- **Lojas do app:** aparecem pelo número da loja no banco (Casa e Cia = 112, Passo Certo = 130, Lar & Estilo = 204). Elas ocupam vagas reais da planta.
+- **Sem esses arquivos:** o mapa volta para o desenho esquemático.
+
 ## Leitura do QR Code pela câmera
 
 - No painel, "Ler QR Code de retirada" já abre a câmera traseira. Basta apontar para o QR Code do cliente: o app lê, fecha a câmera e mostra o pedido para confirmar a retirada.

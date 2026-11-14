@@ -148,3 +148,121 @@
 .mapa-cartao__onde { margin: 10px 0 0; font-weight: 700; }
 .mapa-cartao__hora { margin: 2px 0 0; color: var(--suave); font-size: .92rem; }
 .mapa-cartao__link { margin-top: 14px; }
+
+/* ---------- Planta real (Planta Mix oficial) ---------- */
+
+/* a planta ocupa a largura toda da tela, como a foto do produto */
+.mapa--planta .mapa-painel { margin: 0 -20px; }
+.mapa--planta .mapa-painel > :not(.planta__visor) { margin-left: 20px; margin-right: 20px; }
+
+.planta__visor {
+  position: relative;
+  height: min(62vh, 480px);
+  min-height: 300px;
+  overflow: hidden;
+  background: #fff;
+  border-top: 1px solid var(--borda);
+  border-bottom: 1px solid var(--borda);
+  touch-action: none;           /* o arrastar e a pinça ficam com o mapa */
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.planta__visor:active { cursor: grabbing; }
+.planta__visor:focus-visible { outline: 3px solid var(--dourado); outline-offset: -3px; border-radius: 0; }
+
+.planta__camada {
+  --s: 1;
+  position: absolute; left: 0; top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+.planta__camada--animada { transition: transform .45s cubic-bezier(.2, .7, .2, 1); }
+.planta__camada img { display: block; width: 100%; height: 100%; pointer-events: none; }
+
+/* pinos e ícones mantêm o mesmo tamanho em qualquer zoom */
+.planta__pino, .planta__servico {
+  position: absolute;
+  transform: translate(-50%, -50%) scale(calc(1 / var(--s)));
+}
+
+.planta__pino {
+  transform: translate(-50%, -100%) scale(calc(1 / var(--s)));
+  transform-origin: 50% 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 0; border: 0; background: none;
+  cursor: pointer;
+}
+.planta__pino-rotulo {
+  padding: 4px 9px;
+  border-radius: 8px;
+  background: var(--teal-escuro);
+  color: #fff;
+  font-family: var(--fonte-titulo);
+  font-size: 12px; font-weight: 700; line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(14, 61, 60, .35);
+}
+.planta__pino-ponto {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--dourado);
+  border: 3px solid var(--teal-escuro);
+}
+.planta__pino:hover .planta__pino-rotulo,
+.planta__pino.mapa-selecionada .planta__pino-rotulo { background: var(--teal); }
+.planta__pino:focus-visible { outline: none; }
+.planta__pino:focus-visible .planta__pino-rotulo { outline: 3px solid var(--dourado); outline-offset: 2px; }
+
+.planta__pino.planta__pino--destaque .planta__pino-rotulo { background: var(--dourado); color: var(--teal-escuro); }
+.planta__pino--destaque .planta__pino-ponto { position: relative; }
+.planta__pino--destaque .planta__pino-ponto::after {
+  content: "";
+  position: absolute; inset: -9px;
+  border-radius: 50%;
+  border: 3px solid var(--dourado);
+  animation: planta-pulso 1.6s ease-out infinite;
+}
+@keyframes planta-pulso { from { transform: scale(.6); opacity: 1; } to { transform: scale(1.8); opacity: 0; } }
+
+.planta__servico {
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  border: 1.5px solid var(--teal);
+  color: var(--teal);
+  pointer-events: none;
+  opacity: .9;
+}
+.planta__servico svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.planta__servico--legenda { position: static; transform: none; flex: none; width: 26px; height: 26px; }
+.planta__servico--legenda svg { width: 16px; height: 16px; }
+/* de longe, os ícones de serviço somem para não poluir a planta */
+.planta__visor:not(.planta__visor--perto) .planta__camada .planta__servico { opacity: 0; }
+
+.planta__zoom {
+  position: absolute; right: 12px; bottom: 12px;
+  display: flex; flex-direction: column;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--borda), 0 4px 12px rgba(14, 61, 60, .12);
+}
+.planta__zoom button {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border: 0; background: #fff;
+  color: var(--teal-escuro);
+  font-size: 1.4rem; font-weight: 700; line-height: 1;
+  cursor: pointer;
+}
+.planta__zoom button + button { border-top: 1px solid var(--borda); }
+.planta__zoom button:hover { background: var(--creme); }
+.planta__zoom svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+
+.planta__fonte { margin-top: 8px; color: var(--suave); font-size: .8rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .planta__pino--destaque .planta__pino-ponto::after { animation: none; transform: scale(1.3); }
+}

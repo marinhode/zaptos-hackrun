@@ -238,7 +238,8 @@
   // Tela
   // ---------------------------------------------------------------------
 
-  function tela({ lojas = [], lojaDestaque = null } = {}) {
+  // Mapa esquemático (desenhado aqui): usado quando a planta real não carrega.
+  function telaEsquematica({ lojas = [], lojaDestaque = null } = {}) {
     contador += 1;
     const idBase = `mapa${contador}`;
     const todas = (Array.isArray(lojas) ? lojas : []).map(normalizar);
@@ -340,6 +341,354 @@
     }
 
     return { html, montar };
+  }
+
+  // ---------------------------------------------------------------------
+  // Planta real (Planta Mix oficial do shopping)
+  // Imagens e posições geradas por scripts/gerar_mapa.py a partir do PDF:
+  // data/mapa-planta.json -> { pisos: { "1": { imagem, largura, altura,
+  //   lojas: { "112": [x%, y%] }, servicos: [{ tipo, pos: [x%, y%] }] } } }
+  // As lojas do app aparecem pelo número (Loja 112 -> "112").
+  // ---------------------------------------------------------------------
+
+  const NOMES_SERVICO_PLANTA = {
+    banheiro: 'Banheiros',
+    escada: 'Escadas',
+    eventos: 'Praça de eventos',
+    familia: 'Espaço família',
+    elevador: 'Elevador',
+  };
+  const ICONES_PLANTA = {
+    ...ICONES,
+    eventos: '<path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-6h6v6"/>',
+    familia: '<circle cx="8" cy="6" r="2"/><circle cx="16" cy="7" r="1.6"/><path d="M5 21v-7l-1-4h8l-1 4v7M14 21v-5l-1-3h6l-1 3v5"/>',
+  };
+  const ZOOM_MAX = 6;
+  const ZOOM_FOCO = 3.2;
+  const semMovimento = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let dadosPlanta = null; // cache da planta entre aberturas da tela
+  async function carregarPlanta() {
+    if (dadosPlanta) return dadosPlanta;
+    const r = await fetch('data/mapa-planta.json');
+    if (!r.ok) throw new Error('planta indisponível');
+    const dados = await r.json();
+    if (!dados || !dados.pisos) throw new Error('planta inválida');
+    dadosPlanta = dados;
+    return dados;
+  }
+
+  const chaveNumero = (l) => String(l.numeroTexto || l.numero || '').replace(/^loja\s*/i, '').replace(/\s+/g, '').toUpperCase();
+
+  function htmlPino(loja, pos, destaqueId) {
+    const destaque = loja.id === destaqueId;
+    return `
+      <button type="button" class="planta__pino${destaque ? ' planta__pino--destaque' : ''}" data-loja="${esc(loja.id)}"
+              style="left:${pos[0]}%;top:${pos[1]}%"
+              aria-label="${esc(`${descricaoLoja(loja)}${destaque ? ' (em destaque)' : ''}. Ver detalhes`)}">
+        <span class="planta__pino-rotulo">${esc(truncar(loja.nome, 18))}</span>
+        <span class="planta__pino-ponto" aria-hidden="true"></span>
+      </button>`;
+  }
+
+  function htmlServicoPlanta(s) {
+    return `<span class="planta__servico planta__servico--${esc(s.tipo)}" style="left:${s.pos[0]}%;top:${s.pos[1]}%"
+                  title="${esc(NOMES_SERVICO_PLANTA[s.tipo] || s.tipo)}" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">${ICONES_PLANTA[s.tipo] || ''}</svg></span>`;
+  }
+
+  function htmlLegendaPlanta(servicos) {
+    const tipos = [...new Set(servicos.map((s) => s.tipo))].filter((t) => NOMES_SERVICO_PLANTA[t]);
+    if (!tipos.length) return '';
+    return `
+      <ul class="mapa-legenda">
+        ${tipos.map((t) => `
+          <li><span class="planta__servico planta__servico--${t} planta__servico--legenda" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">${ICONES_PLANTA[t] || ''}</svg></span>
+            <span><strong>${NOMES_SERVICO_PLANTA[t]}</strong>
+              <span class="mapa-legenda__onde">${servicos.filter((s) => s.tipo === t).length} no piso</span></span>
+          </li>`).join('')}
+      </ul>`;
+  }
+
+  // Zoom e arrastar sobre a planta (dedo, mouse, roda e teclado).
+  function criarVisor(visor, info) {
+    const camada = visor.querySelector('.planta__camada');
+    const estado = { s: 1, x: 0, y: 0, w: 0, h: 0 };
+    const ponteiros = new Map();
+    let arrastou = false;
+    let anterior = null;
+
+    function medir() {
+      const W = visor.clientWidth;
+      if (!W) return false;
+      estado.w = W;
+      estado.h = W * info.altura / info.largura;
+      camada.style.width = `${estado.w}px`;
+      camada.style.height = `${estado.h}px`;
+      return true;
+    }
+
+    function limitar() {
+      const W = visor.clientWidth;
+      const H = visor.clientHeight;
+      const lw = estado.w * estado.s;
+      const lh = estado.h * estado.s;
+      estado.x = lw <= W ? (W - lw) / 2 : Math.min(0, Math.max(W - lw, estado.x));
+      estado.y = lh <= H ? (H - lh) / 2 : Math.min(0, Math.max(H - lh, estado.y));
+    }
+
+    function aplicar(animado) {
+      limitar();
+      camada.classList.toggle('planta__camada--animada', !!animado && !semMovimento());
+      camada.style.transform = `translate(${estado.x}px, ${estado.y}px) scale(${estado.s})`;
+      camada.style.setProperty('--s', estado.s);
+      visor.classList.toggle('planta__visor--perto', estado.s >= 2.2);
+    }
+
+    function zoomEm(novo, px, py, animado) {
+      const s = Math.min(ZOOM_MAX, Math.max(1, novo));
+      const wx = (px - estado.x) / estado.s;
+      const wy = (py - estado.y) / estado.s;
+      estado.s = s;
+      estado.x = px - wx * s;
+      estado.y = py - wy * s;
+      aplicar(animado);
+    }
+
+    const centro = () => [visor.clientWidth / 2, visor.clientHeight / 2];
+
+    function focar(pos, zoom = ZOOM_FOCO) {
+      if (!medir()) return;
+      estado.s = zoom;
+      estado.x = visor.clientWidth / 2 - (pos[0] / 100) * estado.w * zoom;
+      estado.y = visor.clientHeight / 2 - (pos[1] / 100) * estado.h * zoom;
+      aplicar(true);
+    }
+
+    function verTudo() {
+      if (!medir()) return;
+      estado.s = 1;
+      aplicar(true);
+    }
+
+    // --- dedo e mouse ---
+    visor.addEventListener('pointerdown', (ev) => {
+      if (ev.target.closest('.planta__zoom')) return;
+      ponteiros.set(ev.pointerId, [ev.clientX, ev.clientY]);
+      arrastou = false;
+      anterior = null;
+    });
+    const aoMover = (ev) => {
+      if (!visor.isConnected) { desligar(); return; } // a tela do mapa foi fechada
+      if (!ponteiros.has(ev.pointerId)) return;
+      const antes = ponteiros.get(ev.pointerId);
+      ponteiros.set(ev.pointerId, [ev.clientX, ev.clientY]);
+      if (ponteiros.size === 1) {
+        const dx = ev.clientX - antes[0];
+        const dy = ev.clientY - antes[1];
+        if (Math.abs(dx) + Math.abs(dy) > 1) arrastou = true;
+        estado.x += dx;
+        estado.y += dy;
+        aplicar(false);
+      } else if (ponteiros.size === 2) {
+        const [a, b] = [...ponteiros.values()];
+        const dist = Math.hypot(a[0] - b[0], a[1] - b[1]);
+        const caixa = visor.getBoundingClientRect();
+        const mx = (a[0] + b[0]) / 2 - caixa.left;
+        const my = (a[1] + b[1]) / 2 - caixa.top;
+        if (anterior) zoomEm(estado.s * (dist / anterior), mx, my, false);
+        anterior = dist;
+        arrastou = true;
+      }
+    };
+    const soltar = (ev) => { ponteiros.delete(ev.pointerId); if (ponteiros.size < 2) anterior = null; };
+    function desligar() {
+      window.removeEventListener('pointermove', aoMover);
+      window.removeEventListener('pointerup', soltar);
+      window.removeEventListener('pointercancel', soltar);
+    }
+    window.addEventListener('pointermove', aoMover);
+    window.addEventListener('pointerup', soltar);
+    window.addEventListener('pointercancel', soltar);
+    // arrastar não conta como toque num pino
+    visor.addEventListener('click', (ev) => {
+      if (arrastou) { ev.stopPropagation(); ev.preventDefault(); arrastou = false; }
+    }, true);
+
+    visor.addEventListener('wheel', (ev) => {
+      ev.preventDefault();
+      const caixa = visor.getBoundingClientRect();
+      zoomEm(estado.s * Math.exp(-ev.deltaY * 0.0015), ev.clientX - caixa.left, ev.clientY - caixa.top, false);
+    }, { passive: false });
+
+    // --- botões e teclado ---
+    visor.querySelector('[data-zoom="mais"]').addEventListener('click', () => zoomEm(estado.s * 1.6, ...centro(), true));
+    visor.querySelector('[data-zoom="menos"]').addEventListener('click', () => zoomEm(estado.s / 1.6, ...centro(), true));
+    visor.querySelector('[data-zoom="tudo"]').addEventListener('click', verTudo);
+    visor.addEventListener('keydown', (ev) => {
+      if (ev.target !== visor) return;
+      const passo = 60;
+      const acoes = {
+        ArrowLeft: () => { estado.x += passo; aplicar(true); },
+        ArrowRight: () => { estado.x -= passo; aplicar(true); },
+        ArrowUp: () => { estado.y += passo; aplicar(true); },
+        ArrowDown: () => { estado.y -= passo; aplicar(true); },
+        '+': () => zoomEm(estado.s * 1.6, ...centro(), true),
+        '=': () => zoomEm(estado.s * 1.6, ...centro(), true),
+        '-': () => zoomEm(estado.s / 1.6, ...centro(), true),
+        0: verTudo,
+      };
+      if (acoes[ev.key]) { ev.preventDefault(); acoes[ev.key](); }
+    });
+
+    if (window.ResizeObserver) new ResizeObserver(() => { if (medir()) aplicar(false); }).observe(visor);
+
+    return { medir, aplicar, focar, verTudo };
+  }
+
+  function telaPlanta(dados, { lojas = [], lojaDestaque = null } = {}) {
+    contador += 1;
+    const idBase = `planta${contador}`;
+    const pisos = Object.keys(dados.pisos).map(Number).sort();
+    const todas = (Array.isArray(lojas) ? lojas : []).map(normalizar);
+    const posicao = (l) => (dados.pisos[l.piso] && dados.pisos[l.piso].lojas[chaveNumero(l)]) || null;
+    const destaque = todas.find((l) => String(l.id) === String(lojaDestaque)) || null;
+    const destaqueId = destaque ? destaque.id : null;
+    const pisoInicial = destaque && pisos.includes(destaque.piso) ? destaque.piso : pisos[0];
+    const porPiso = Object.fromEntries(pisos.map((p) => [p, todas.filter((l) => l.piso === p)]));
+
+    const html = `
+      <div class="mapa mapa--planta" data-mapa="${idBase}">
+        <div class="mapa-abas" role="tablist" aria-label="Pisos do shopping">
+          ${pisos.map((p) => `
+            <button type="button" role="tab" class="mapa-aba" id="${idBase}-aba-${p}" data-piso="${p}"
+                    aria-controls="${idBase}-painel-${p}" aria-selected="${p === pisoInicial}"
+                    tabindex="${p === pisoInicial ? 0 : -1}">Piso ${p}</button>`).join('')}
+        </div>
+
+        ${pisos.map((p) => {
+          const info = dados.pisos[p];
+          const comPos = porPiso[p].filter((l) => posicao(l));
+          return `
+          <section class="mapa-painel" role="tabpanel" id="${idBase}-painel-${p}" data-piso="${p}"
+                   aria-labelledby="${idBase}-aba-${p}" ${p === pisoInicial ? '' : 'hidden'}>
+            <div class="planta__visor" tabindex="0" data-visor="${p}"
+                 aria-label="Planta do ${esc(info.nome)}. Arraste para mover, use dois dedos ou os botões para aproximar.">
+              <div class="planta__camada">
+                <img src="${esc(info.imagem)}" alt="" draggable="false" width="${info.largura}" height="${info.altura}">
+                ${(info.servicos || []).map(htmlServicoPlanta).join('')}
+                ${comPos.map((l) => htmlPino(l, posicao(l), destaqueId)).join('')}
+              </div>
+              <div class="planta__zoom">
+                <button type="button" data-zoom="mais" aria-label="Aproximar">+</button>
+                <button type="button" data-zoom="menos" aria-label="Afastar">−</button>
+                <button type="button" data-zoom="tudo" aria-label="Ver o piso inteiro">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+                </button>
+              </div>
+            </div>
+            <p class="planta__fonte">${esc(info.nome)}: planta oficial do shopping. As lojas em dourado são as do app.</p>
+            <h3 class="mapa-subtitulo">Serviços no Piso ${p}</h3>
+            ${htmlLegendaPlanta(info.servicos || [])}
+          </section>`;
+        }).join('')}
+
+        <section class="mapa-cartao" aria-live="polite" aria-label="Loja selecionada" data-cartao>
+          ${htmlCartao(destaque, destaqueId)}
+        </section>
+
+        ${pisos.map((p) => `
+          <section class="mapa-lojas" data-lista-piso="${p}" aria-labelledby="${idBase}-lojas-${p}" ${p === pisoInicial ? '' : 'hidden'}>
+            <h3 class="mapa-subtitulo" id="${idBase}-lojas-${p}">Lojas do app neste piso <span class="mapa-subtitulo__piso">(Piso ${p})</span></h3>
+            ${htmlLista(porPiso[p], destaqueId)}
+          </section>`).join('')}
+      </div>`;
+
+    function montar(raiz) {
+      const mapa = raiz && raiz.querySelector(`[data-mapa="${idBase}"]`);
+      if (!mapa) return;
+      const abas = [...mapa.querySelectorAll('.mapa-aba')];
+      const cartao = mapa.querySelector('[data-cartao]');
+      const porId = new Map(todas.map((l) => [String(l.id), l]));
+      const visores = {};
+      for (const el of mapa.querySelectorAll('[data-visor]')) visores[el.dataset.visor] = criarVisor(el, dados.pisos[el.dataset.visor]);
+
+      function mostrarPiso(piso, focarAba) {
+        for (const aba of abas) {
+          const ativa = Number(aba.dataset.piso) === piso;
+          aba.setAttribute('aria-selected', String(ativa));
+          aba.tabIndex = ativa ? 0 : -1;
+          if (ativa && focarAba) aba.focus();
+        }
+        for (const el of mapa.querySelectorAll('.mapa-painel, [data-lista-piso]')) {
+          el.hidden = Number(el.dataset.piso || el.dataset.listaPiso) !== piso;
+        }
+        const v = visores[piso];
+        if (v && v.medir()) v.aplicar(false); // o painel estava escondido: mede agora
+      }
+
+      function selecionar(id, centralizar) {
+        const loja = porId.get(String(id));
+        if (!loja) return;
+        for (const el of mapa.querySelectorAll('[data-loja]')) {
+          const sel = el.dataset.loja === String(loja.id);
+          el.classList.toggle('mapa-selecionada', sel);
+          if (el.classList.contains('mapa-lista__item')) el.setAttribute('aria-pressed', String(sel));
+        }
+        cartao.innerHTML = htmlCartao(loja, destaqueId);
+        const pos = posicao(loja);
+        if (centralizar && pos) {
+          mostrarPiso(loja.piso, false);
+          visores[loja.piso].focar(pos);
+        }
+      }
+
+      for (const aba of abas) aba.addEventListener('click', () => mostrarPiso(Number(aba.dataset.piso), false));
+      mapa.querySelector('.mapa-abas').addEventListener('keydown', (ev) => {
+        const i = abas.indexOf(document.activeElement);
+        if (i < 0) return;
+        const j = { ArrowRight: (i + 1) % abas.length, ArrowLeft: (i - 1 + abas.length) % abas.length, Home: 0, End: abas.length - 1 }[ev.key];
+        if (j === undefined) return;
+        ev.preventDefault();
+        mostrarPiso(Number(abas[j].dataset.piso), true);
+      });
+      mapa.addEventListener('click', (ev) => {
+        const alvo = ev.target.closest('[data-loja]');
+        if (!alvo || !mapa.contains(alvo)) return;
+        // tocar na lista leva até a loja na planta; tocar no pino só abre o cartão
+        selecionar(alvo.dataset.loja, alvo.classList.contains('mapa-lista__item'));
+      });
+
+      mostrarPiso(pisoInicial, false);
+      if (destaque && posicao(destaque)) {
+        selecionar(destaque.id, false);
+        requestAnimationFrame(() => visores[destaque.piso].focar(posicao(destaque)));
+      }
+    }
+
+    return { html, montar };
+  }
+
+  // Tenta a planta real; se ela não carregar, usa o mapa esquemático.
+  function tela(opcoes = {}) {
+    contador += 1;
+    const id = `mapa-carga${contador}`;
+    return {
+      html: `<div data-mapa-carga="${id}"><p class="carregando">Carregando a planta do shopping…</p></div>`,
+      montar(raiz) {
+        const caixa = raiz && raiz.querySelector(`[data-mapa-carga="${id}"]`);
+        if (!caixa) return;
+        carregarPlanta()
+          .then((dados) => telaPlanta(dados, opcoes))
+          .catch(() => telaEsquematica(opcoes))
+          .then((t) => {
+            if (!caixa.isConnected) return; // a pessoa já saiu da tela
+            caixa.innerHTML = t.html;
+            t.montar(caixa);
+          });
+      },
+    };
   }
 
   window.ZaptosMapa = { tela };

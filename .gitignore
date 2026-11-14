@@ -26,3 +26,9 @@ Thumbs.db
 
 # Imagens enviadas pelos lojistas
 backend/uploads/
+
+# Planta oficial do shopping (documento interno): gerada localmente por
+# scripts/gerar_mapa.py a partir do PDF, não vai para o repositório público
+frontend/img/mapa/
+frontend/data/mapa-planta.json
+*.pdf
