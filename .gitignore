@@ -1,0 +1,23 @@
+# Segredos
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Node / front
+node_modules/
+dist/
+
+# Editor / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+~$*
