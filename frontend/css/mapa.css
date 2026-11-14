@@ -1,0 +1,150 @@
+/* Mapa digital do shopping (RF018). Usa as cores de styles.css. */
+
+.mapa { display: flex; flex-direction: column; gap: 16px; }
+
+/* ---------- Abas de piso ---------- */
+
+.mapa-abas {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+  padding: 4px;
+  background: var(--branco);
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+}
+.mapa-aba {
+  min-height: 44px;
+  border: 0; border-radius: 999px;
+  background: transparent;
+  font: inherit; font-weight: 600; color: var(--suave);
+  cursor: pointer;
+}
+.mapa-aba:hover { color: var(--teal); }
+.mapa-aba[aria-selected="true"] { background: var(--teal-escuro); color: #fff; }
+
+/* ---------- Planta ---------- */
+
+.mapa-planta-caixa {
+  background: var(--branco);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  padding: 8px;
+}
+.mapa-planta { display: block; width: 100%; height: auto; font-family: inherit; }
+
+.mapa-fundo { fill: var(--areia); }
+.mapa-corredor { fill: var(--creme); stroke: var(--borda); stroke-width: 1; }
+.mapa-rotulo { fill: var(--suave); font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.mapa-vaga { fill: none; stroke: var(--borda); stroke-width: 1.5; stroke-dasharray: 4 4; }
+
+.mapa-praca { fill: rgba(184, 80, 46, .12); stroke: var(--terracota); stroke-width: 1.5; }
+.mapa-praca__ic { color: var(--terracota); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.mapa-praca__txt { fill: var(--terracota); font-size: 12px; font-weight: 700; }
+
+.mapa-servico circle { fill: var(--branco); stroke: var(--teal); stroke-width: 1.5; }
+.mapa-servico svg { color: var(--teal-escuro); fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.mapa-servico--atendimento circle { fill: var(--teal-escuro); stroke: var(--teal-escuro); }
+.mapa-servico--atendimento svg { color: #fff; }
+
+/* Lojas */
+.mapa-loja { cursor: pointer; outline: none; }
+.mapa-loja__forma { fill: var(--branco); stroke: var(--borda); stroke-width: 1.5; transition: fill .15s, stroke .15s; }
+.mapa-loja__num { fill: var(--teal-escuro); font-weight: 800; }
+.mapa-loja__nome { fill: var(--suave); font-weight: 600; }
+.mapa-loja:hover .mapa-loja__forma { stroke: var(--teal); }
+
+.mapa-loja.mapa-selecionada .mapa-loja__forma { fill: var(--teal); stroke: var(--teal-escuro); }
+.mapa-loja.mapa-selecionada .mapa-loja__num,
+.mapa-loja.mapa-selecionada .mapa-loja__nome { fill: #fff; }
+
+/* Destaque: dourado, pulsando */
+.mapa-loja--destaque .mapa-loja__forma,
+.mapa-loja--destaque.mapa-selecionada .mapa-loja__forma { fill: var(--dourado); stroke: var(--teal-escuro); stroke-width: 2; }
+.mapa-loja--destaque .mapa-loja__num,
+.mapa-loja--destaque .mapa-loja__nome,
+.mapa-loja--destaque.mapa-selecionada .mapa-loja__num,
+.mapa-loja--destaque.mapa-selecionada .mapa-loja__nome { fill: var(--teal-escuro); }
+.mapa-loja__pulso {
+  fill: none; stroke: var(--dourado); stroke-width: 3;
+  transform-box: fill-box; transform-origin: center;
+  animation: mapa-pulso 1.6s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes mapa-pulso {
+  0% { transform: scale(1); opacity: .9; }
+  100% { transform: scale(1.18); opacity: 0; }
+}
+
+/* Foco visível pelo teclado (o contorno padrão não aparece bem dentro do SVG) */
+.mapa-loja:focus-visible .mapa-loja__forma { stroke: var(--teal-escuro); stroke-width: 4; stroke-dasharray: none; }
+.mapa-loja--destaque:focus-visible .mapa-loja__forma { stroke: var(--terracota); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mapa-loja__pulso { animation: none; opacity: 1; stroke-width: 4; }
+  .mapa-loja__forma { transition: none; }
+}
+
+/* ---------- Títulos, legenda e lista ---------- */
+
+.mapa-subtitulo { margin: 16px 0 8px; font-size: 1rem; font-weight: 700; color: var(--teal-escuro); }
+.mapa-subtitulo__piso { font-weight: 500; color: var(--suave); }
+
+.mapa-legenda { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.mapa-legenda li { display: flex; align-items: flex-start; gap: 10px; font-size: .92rem; }
+.mapa-legenda__onde { display: block; color: var(--suave); font-size: .85rem; }
+
+.mapa-ic {
+  flex: none; width: 32px; height: 32px; padding: 5px;
+  border-radius: 50%;
+  background: var(--branco); border: 1.5px solid var(--teal);
+  color: var(--teal-escuro);
+  fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.mapa-ic--atendimento { background: var(--teal-escuro); border-color: var(--teal-escuro); color: #fff; }
+.mapa-ic--praca { border-color: var(--terracota); color: var(--terracota); background: rgba(184, 80, 46, .12); }
+
+.mapa-lojas .mapa-subtitulo { margin-top: 0; }
+.mapa-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.mapa-lista__item {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: 56px; padding: 8px 14px;
+  background: var(--branco);
+  border: 1.5px solid var(--borda); border-radius: var(--raio-p);
+  font: inherit; color: var(--texto); text-align: left;
+  cursor: pointer;
+}
+.mapa-lista__item:hover { border-color: var(--teal); }
+.mapa-lista__item.mapa-selecionada { border-color: var(--teal); background: rgba(21, 94, 92, .06); }
+.mapa-lista__item--destaque { border-color: var(--dourado); }
+.mapa-lista__num {
+  flex: none; min-width: 48px; padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--creme); color: var(--teal-escuro);
+  font-weight: 800; text-align: center; font-variant-numeric: tabular-nums;
+}
+.mapa-lista__item--destaque .mapa-lista__num { background: var(--dourado); }
+.mapa-lista__txt { flex: 1; min-width: 0; }
+.mapa-lista__txt strong { display: block; overflow-wrap: anywhere; }
+.mapa-lista__txt span { display: block; font-size: .85rem; color: var(--suave); }
+.mapa-lista__selo, .mapa-cartao__selo {
+  flex: none;
+  padding: 2px 8px; border-radius: 999px;
+  background: var(--aviso-fundo); color: var(--aviso-texto);
+  font-size: .75rem; font-weight: 700;
+}
+.mapa-vazio { color: var(--suave); }
+
+/* ---------- Cartão da loja selecionada ---------- */
+
+.mapa-cartao {
+  padding: 16px;
+  background: var(--branco);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+}
+.mapa-cartao__dica { margin: 0; color: var(--suave); }
+.mapa-cartao__selo { display: inline-block; margin-bottom: 6px; }
+.mapa-cartao__nome { margin: 0; font-size: 1.15rem; color: var(--teal-escuro); overflow-wrap: anywhere; }
+.mapa-cartao__seg { margin: 2px 0 0; color: var(--suave); }
+.mapa-cartao__onde { margin: 10px 0 0; font-weight: 700; }
+.mapa-cartao__hora { margin: 2px 0 0; color: var(--suave); font-size: .92rem; }
+.mapa-cartao__link { margin-top: 14px; }
