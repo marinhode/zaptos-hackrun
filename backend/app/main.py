@@ -93,3 +93,24 @@ app.mount("/uploads", StaticFiles(directory=PASTA_UPLOADS), name="uploads")
 from .modulos import notificacoes  # noqa: E402
 
 app.include_router(notificacoes.router, prefix="/api")
+
+
+# Cabeçalhos de segurança em todas as respostas (o site fica público no túnel HTTPS).
+@app.middleware("http")
+async def cabecalhos_de_seguranca(request, chamar_proximo):
+    resposta = await chamar_proximo(request)
+    resposta.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resposta.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    resposta.headers.setdefault("X-Frame-Options", "DENY")
+    resposta.headers.setdefault("Permissions-Policy", "camera=(self), microphone=(), geolocation=()")
+    return resposta
+
+
+# O front-end (frontend/) servido pela própria API: um endereço só para o app e a
+# API, o que permite publicar tudo com um único link HTTPS. Fica por ÚLTIMO para
+# não esconder as rotas /api e /uploads.
+from .config import RAIZ_REPO  # noqa: E402
+
+PASTA_FRONT = RAIZ_REPO / "frontend"
+if PASTA_FRONT.is_dir():
+    app.mount("/", StaticFiles(directory=PASTA_FRONT, html=True), name="front")

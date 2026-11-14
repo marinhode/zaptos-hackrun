@@ -4,6 +4,9 @@ Lojistas, atendentes e administradores não se cadastram sozinhos: as contas
 são criadas pela administração do shopping.
 """
 import re
+import threading
+import time
+from collections import deque
 
 import pymysql
 from fastapi import APIRouter
@@ -16,6 +19,37 @@ from ..seguranca import gerar_hash_senha, gerar_token, senha_confere, senha_vali
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
 
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+# Contra quem tenta adivinhar senha: depois de 5 erros em 10 minutos, aquele
+# e-mail fica bloqueado para login até a janela passar. Fica na memória da API
+# (zera quando ela reinicia), o que basta para um servidor único.
+MAX_ERROS = 5
+JANELA_S = 10 * 60
+_erros: dict[str, deque] = {}
+_trava = threading.Lock()
+
+
+def _segundos_bloqueado(email: str) -> int:
+    agora = time.monotonic()
+    with _trava:
+        fila = _erros.get(email)
+        if not fila:
+            return 0
+        while fila and agora - fila[0] > JANELA_S:
+            fila.popleft()
+        if len(fila) < MAX_ERROS:
+            return 0
+        return int(JANELA_S - (agora - fila[0])) + 1
+
+
+def _registrar_erro(email: str) -> None:
+    with _trava:
+        _erros.setdefault(email, deque(maxlen=MAX_ERROS)).append(time.monotonic())
+
+
+def _limpar_erros(email: str) -> None:
+    with _trava:
+        _erros.pop(email, None)
 
 
 def _email(valor: str) -> str:
@@ -58,6 +92,12 @@ def _resposta(usuario: dict) -> dict:
 
 @router.post("/login")
 def entrar(dados: Login) -> dict:
+    espera = _segundos_bloqueado(dados.email)
+    if espera:
+        minutos = max(1, round(espera / 60))
+        raise ErroNegocio(429, "MUITAS_TENTATIVAS",
+                          f"Muitas tentativas erradas. Tente de novo em {minutos} min.")
+
     with transacao() as cur:
         cur.execute(
             "SELECT id, nome, email, perfil, senha_hash, ativo FROM usuario WHERE email = %s",
@@ -67,7 +107,9 @@ def entrar(dados: Login) -> dict:
 
     # Mesma mensagem para e-mail inexistente e senha errada.
     if not senha_confere(dados.senha, usuario["senha_hash"] if usuario else None):
+        _registrar_erro(dados.email)
         raise ErroNegocio(401, "CREDENCIAIS_INVALIDAS", "E-mail ou senha incorretos.")
+    _limpar_erros(dados.email)
     if not usuario["ativo"]:
         raise ErroNegocio(403, "CONTA_BLOQUEADA", "Esta conta está bloqueada. Procure a administração do shopping.")
     return _resposta(usuario)
