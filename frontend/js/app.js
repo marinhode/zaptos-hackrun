@@ -188,7 +188,9 @@
       aba: perfil === 'cliente' ? 'pedidos' : null,
       voltar: '#/',
       html: vazio('alerta', `Esta área é para ${NOME_PERFIL[perfil] || perfil}`,
-        `Você entrou como ${sessao().nome}. Para continuar, saia e entre com outra conta.`,
+        sessao()
+          ? `Você está logado como ${sessao().nome} (${sessao().perfil}), talvez em outra aba. Para continuar, entre com uma conta de ${perfil}.`
+          : 'Para continuar, entre com outra conta.',
         '<button class="btn btn--primario" type="button" data-trocar>Entrar com outra conta</button>'),
       montar: (raiz) => raiz.querySelector('[data-trocar]').addEventListener('click', () => {
         API.sair();
@@ -224,6 +226,13 @@
     } catch (err) {
       if (err && (err.codigo === 'NAO_AUTENTICADO' || err.codigo === 'SESSAO_EXPIRADA')) {
         if (minha === navegacao) irParaEntrar(exigido);
+        return;
+      }
+      // O login foi trocado em outra aba: a API respondeu com o perfil novo.
+      if (err && err.codigo === 'SEM_PERMISSAO' && API.iniciar) {
+        try { await API.iniciar(); } catch (e) { /* segue com o aviso */ }
+        if (minha !== navegacao) return;
+        mostrar(exigido ? telaOutroPerfil(exigido) : telaErro(err));
         return;
       }
       console.error(err);
@@ -1536,6 +1545,11 @@
       }
     }
     window.addEventListener('hashchange', rotear);
+    // Entrou ou saiu em outra aba: o navegador guarda um login só, então
+    // esta aba recarrega para mostrar quem está logado agora.
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'zaptos-token') location.reload();
+    });
     rotear();
   }
 
