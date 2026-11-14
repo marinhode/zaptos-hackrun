@@ -21,7 +21,7 @@ window.ZAPTOS_DADOS = {
     {
       id: 1, lojaId: 1, nome: 'Poltrona Lina', preco: 1290, icone: 'poltrona', estoque: 3,
       medidas: { largura: 78, altura: 72, profundidade: 85 },
-      avaliacao: 4.8, comprasVerificadas: 12, imagens: [],
+      avaliacao: 4.8, comprasVerificadas: 12, imagens: ['img/produtos/poltrona-lina.png'],
       descricao: 'Poltrona estofada em linho com pés de madeira maciça. Disponível em verde-musgo e terracota.',
     },
     {
