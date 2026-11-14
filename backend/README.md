@@ -45,6 +45,8 @@ Todas começam com `/api`.
 | POST | `/auth/login` | todos | entra (`{"email", "senha"}`) e recebe o token |
 | POST | `/auth/cadastro` | todos | cria conta de **cliente** (`{"nome", "email", "senha"}`) e já entra |
 | GET | `/me` | logado | dados do usuário logado |
+| GET | `/notifications` | logado | meus avisos (`naoLidas` + os 30 mais recentes) |
+| POST | `/notifications/read-all` · `/notifications/{id}/read` | logado | marca avisos como lidos |
 | GET | `/categories` | todos | categorias |
 | GET | `/stores` · `/stores/{id}` | todos | lojas (vitrine) |
 | GET | `/products` · `/products/{id}` | todos | produtos; filtros `q`, `categoria`, `disponivel`, `preco_max`, `piso`, `loja_id` |
@@ -82,6 +84,19 @@ Erros de regra voltam como `{"codigo": "SEM_ESTOQUE", "mensagem": "..."}`, com o
 - Só **clientes** se cadastram sozinhos. Contas de lojista, atendente e administrador são criadas pelo shopping.
 - As contas de teste do seed estão em `db/README.md`.
 - `DEMO_AUTH=1` aceita o cabeçalho `X-Usuario-Id` no lugar do token. É usado pelos testes; **nunca ligue fora do desenvolvimento**.
+
+## Avisos (RF007)
+
+Gravados na **mesma transação** da mudança que os gerou: se o pagamento ou a retirada forem desfeitos, o aviso também é.
+
+| Quando | Quem recebe | Aviso |
+| --- | --- | --- |
+| Pagamento aprovado | cliente | "Pagamento aprovado", com o código de retirada |
+| Pagamento aprovado | lojista da loja | "Nova reserva paga" |
+| Retirada confirmada | cliente | "Retirada confirmada" |
+| Reserva venceu (15 min) | cliente | "Sua reserva expirou" (gerado pela rotina `sp_liberar_reservas_expiradas`) |
+
+Cancelar a reserva não gera aviso, porque foi o próprio cliente que desistiu.
 
 ## Imagens dos produtos (RF013, RNF001)
 
