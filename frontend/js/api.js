@@ -80,6 +80,7 @@
     const l = loja(p.lojaId);
     return {
       ...p,
+      ...((st.edicoes || {})[p.id] || {}),
       estoque: st.estoque[p.id].disponivel,
       loja: l,
       categoria: categoria(l.categoriaId),
@@ -384,6 +385,41 @@
       real.retiradoEm = new Date().toISOString();
       salvar();
       return completarPedido(real);
+    },
+
+    // ---------- edição de produtos pelo lojista (demonstração) ----------
+    async produtoDoLojista(id) {
+      await espera(60);
+      const p = D.produtos.find((x) => x.id === Number(id));
+      if (!p) throw erro('NAO_ENCONTRADO', 'Produto não encontrado.');
+      return completarProduto(p);
+    },
+
+    async editarProduto(id, dados) {
+      await espera();
+      const p = D.produtos.find((x) => x.id === Number(id));
+      if (!p) throw erro('NAO_ENCONTRADO', 'Produto não encontrado.');
+      st.edicoes = st.edicoes || {};
+      const ed = {};
+      if (dados.nome) ed.nome = dados.nome;
+      if (dados.descricao !== undefined) ed.descricao = dados.descricao || '';
+      if (dados.preco) ed.preco = Number(dados.preco);
+      st.edicoes[p.id] = { ...(st.edicoes[p.id] || {}), ...ed };
+      if (Number.isInteger(dados.estoque)) st.estoque[p.id].disponivel = dados.estoque;
+      salvar();
+      return completarProduto(p);
+    },
+
+    async criarProduto() {
+      throw erro('SO_SERVIDOR', 'Na demonstração dá para editar os produtos existentes. Cadastrar novos precisa do servidor.');
+    },
+
+    async enviarImagem(id) {
+      return API.produtoDoLojista(id);
+    },
+
+    async apagarImagem(id) {
+      return API.produtoDoLojista(id);
     },
 
     // Loja usada no painel do lojista de demonstração.
