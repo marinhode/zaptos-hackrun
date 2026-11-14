@@ -1,0 +1,98 @@
+/* Comprovante de pagamento (js/comprovante.js). Cores e fontes de styles.css. */
+
+.recibo {
+  max-width: 470px;
+  margin: 0 auto;
+  padding: 24px 22px;
+  background: var(--branco);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  color: var(--texto);
+  font-family: var(--fonte-texto);
+}
+
+/* Marca */
+.recibo__marca { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.recibo__logo {
+  display: grid; place-items: center;
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  background: var(--teal-escuro); color: var(--dourado);
+  font-family: var(--fonte-titulo); font-size: 1.4rem; font-weight: 800;
+}
+.recibo__nome { font-family: var(--fonte-titulo); font-size: 1.6rem; font-weight: 800; color: var(--teal-escuro); letter-spacing: -.02em; }
+.recibo__shopping {
+  margin: 6px 0 0; text-align: center;
+  font-size: .75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--suave);
+}
+
+/* Status e valor */
+.recibo__status {
+  margin-top: 20px; padding-top: 20px;
+  border-top: 1px solid var(--borda);
+  text-align: center;
+}
+.recibo__check {
+  display: inline-grid; place-items: center;
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  background: var(--ok-fundo); color: var(--ok-texto);
+}
+.recibo__status h2 { margin: 10px 0 0; font-family: var(--fonte-titulo); font-size: 1.3rem; color: var(--teal-escuro); }
+.recibo__valor {
+  margin: 8px 0 0;
+  font-family: var(--fonte-titulo); font-size: 2rem; font-weight: 800;
+  color: var(--teal-escuro); font-variant-numeric: tabular-nums;
+}
+.recibo__data { margin: 2px 0 0; font-size: .9rem; color: var(--suave); }
+
+/* Linhas */
+.recibo__dados {
+  margin: 20px 0 0; padding-top: 12px;
+  border-top: 1px solid var(--borda);
+}
+.recibo__linha { display: flex; justify-content: space-between; gap: 14px; padding: 7px 0; font-size: .95rem; }
+.recibo__linha dt { color: var(--suave); flex: none; }
+.recibo__linha dd { margin: 0; font-weight: 700; text-align: right; overflow-wrap: anywhere; }
+.recibo__sub { display: block; font-size: .82rem; font-weight: 400; color: var(--suave); }
+.recibo__linha--total { margin-top: 4px; padding-top: 12px; border-top: 1px dashed var(--borda); font-size: 1.05rem; }
+.recibo__linha--total dt { color: var(--texto); font-weight: 700; }
+.recibo__linha--total dd { color: var(--teal-escuro); font-family: var(--fonte-titulo); }
+
+/* Retirada */
+.recibo__retirada {
+  margin-top: 20px; padding: 20px 16px;
+  border-radius: var(--raio-p);
+  background: var(--creme);
+  border: 1px solid rgba(201, 162, 74, .45);
+  text-align: center;
+}
+.recibo__retirada h3 { margin: 0; font-family: var(--fonte-titulo); font-size: 1rem; color: var(--teal-escuro); }
+.recibo__retirada .qr { margin: 12px auto; }
+.recibo__retirada .codigo { margin: 4px 0 0; color: var(--teal-escuro); }
+.recibo__nota { margin: 8px 0 0; font-size: .85rem; color: var(--suave); line-height: 1.45; }
+
+.recibo__aviso { margin: 16px 0 0; text-align: center; font-size: .75rem; color: var(--suave); line-height: 1.45; }
+
+.recibo__imprimir { max-width: 470px; margin: 16px auto 0; }
+
+/* Impressão: só o comprovante */
+@media print {
+  .topbar, .tabbar, .pular, .aviso-modo, [data-imprimir], .recibo__imprimir { display: none !important; }
+  body, .app, main { background: #fff !important; }
+  body * { visibility: hidden; }
+  .recibo, .recibo * { visibility: visible; }
+  .recibo {
+    position: absolute; left: 0; top: 0;
+    width: 100%; max-width: 100%;
+    border: 0; border-radius: 0; padding: 0;
+  }
+  .recibo__retirada, .recibo__check, .recibo__logo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* cabe numa página A4 e o QR nunca é cortado ao meio */
+  .recibo__status, .recibo__dados { margin-top: 12px; padding-top: 12px; }
+  .recibo__linha { padding: 4px 0; }
+  .recibo__retirada { margin-top: 12px; padding: 14px; break-inside: avoid; page-break-inside: avoid; }
+  .recibo__retirada .qr { width: 184px; height: 184px; padding: 12px; margin: 8px auto; }
+  .recibo__retirada .qr img, .recibo__retirada .qr canvas { width: 160px; height: 160px; }
+}
