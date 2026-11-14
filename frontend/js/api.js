@@ -88,7 +88,32 @@
 
   function completarPedido(p) {
     const prod = D.produtos.find((x) => x.id === p.produtoId);
-    return { ...p, produto: completarProduto(prod), loja: loja(p.lojaId) };
+    const extra = p.codigo ? { qrCodigo: qrDoPedido(p) } : {};
+    // nome do cliente do pedido (o lojista vê o nome de quem comprou, não o próprio)
+    const conta = Object.values(CONTAS).find((c) => c.id === p.clienteId && c.perfil === 'cliente');
+    if (conta) extra.cliente = { nome: conta.nome };
+    return { ...p, ...extra, produto: completarProduto(prod), loja: loja(p.lojaId) };
+  }
+
+  // Na demonstração cada aparelho guarda os próprios dados (localStorage).
+  // Para o lojista validar no celular dele um pedido feito no celular do
+  // cliente, o QR Code leva os dados do pedido junto com o código.
+  const PREFIXO_QR = 'ZAPTOS1:';
+  function qrDoPedido(p) {
+    const dados = [p.codigo, p.id, p.clienteId, p.produtoId, p.lojaId, p.valor, p.metodo || '', p.pagoEm, p.criadoEm];
+    return PREFIXO_QR + btoa(unescape(encodeURIComponent(JSON.stringify(dados))));
+  }
+  function pedidoDoQr(texto) {
+    if (!texto.startsWith(PREFIXO_QR)) return null;
+    try {
+      const [codigo, id, clienteId, produtoId, lojaId, valor, metodo, pagoEm, criadoEm] =
+        JSON.parse(decodeURIComponent(escape(atob(texto.slice(PREFIXO_QR.length)))));
+      if (!codigo || !D.produtos.some((x) => x.id === produtoId)) return null;
+      return { id, clienteId, produtoId, lojaId, valor, metodo: metodo || undefined,
+               pagoEm, criadoEm, codigo, status: 'aprovado', importado: true };
+    } catch (_) {
+      return null;
+    }
   }
 
   function gerarCodigo(pedidoId) {
@@ -334,8 +359,16 @@
     // GET /seller/pickups/:codigo  (RN003, RN004)
     async validarCodigo(lojaId, codigo) {
       await espera();
-      const limpo = String(codigo || '').trim().toUpperCase();
-      const p = st.pedidos.find((x) => x.codigo && x.codigo === limpo);
+      const bruto = String(codigo || '').trim();
+      const doQr = pedidoDoQr(bruto);
+      const limpo = doQr ? doQr.codigo : bruto.toUpperCase();
+      let p = st.pedidos.find((x) => x.codigo && x.codigo === limpo);
+      if (!p && doQr) {
+        // pedido feito em outro aparelho: passa a existir neste também
+        st.pedidos.push(doQr);
+        salvar();
+        p = doQr;
+      }
       if (!p) throw erro('NAO_ENCONTRADO', 'Código não encontrado. Confira com o cliente.');
       if (p.lojaId !== lojaId) throw erro('OUTRA_LOJA', 'Este pedido é de outra loja.');
       if (p.status === 'retirado') throw erro('JA_RETIRADO', 'Este código já foi usado: o pedido já foi retirado.');
@@ -346,7 +379,7 @@
     // POST /seller/pickups/:codigo/confirm
     async confirmarRetirada(lojaId, codigo) {
       const p = await API.validarCodigo(lojaId, codigo);
-      const real = st.pedidos.find((x) => x.id === p.id);
+      const real = st.pedidos.find((x) => x.codigo === p.codigo);
       real.status = 'retirado';
       real.retiradoEm = new Date().toISOString();
       salvar();
