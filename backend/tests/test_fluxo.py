@@ -80,6 +80,12 @@ def test_catalogo_e_busca(api):
     assert api.get("/api/products/999999").status_code == 404
 
 
+def test_me_devolve_usuario_sem_dados_sensiveis(api):
+    eu = api.get("/api/me", headers=CLIENTE).json()
+    assert eu["id"] == 1 and eu["perfil"] == "cliente"
+    assert "senha_hash" not in eu
+
+
 def test_rotas_protegidas_exigem_usuario(api):
     assert api.get("/api/orders").status_code == 401
     # lojista não acessa rotas de cliente (RNF006)
