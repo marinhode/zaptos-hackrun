@@ -2,8 +2,14 @@
 (function () {
   'use strict';
 
-  const API = window.ZaptosAPI;
-  const LOJA_DEMO = 1; // painel do lojista de demonstração: Casa e Cia
+  // Escolhida em iniciar(): API Python (js/api-remota.js) ou simulação (js/api.js).
+  let API = window.ZaptosApiDemo;
+  let lojaDoLojista = null; // loja do lojista logado, carregada no primeiro acesso ao painel
+
+  async function lojaAtual() {
+    if (lojaDoLojista == null) lojaDoLojista = await API.lojaDoLojista();
+    return lojaDoLojista;
+  }
 
   const app = document.getElementById('app');
   const conteudo = document.getElementById('conteudo');
@@ -350,6 +356,15 @@
 
   // ---------- Tela 3: Produto (galeria e medidas, RF013) ----------
 
+  // Nota (RF020, segunda versão) e compras verificadas, quando houver.
+  function avaliacao(p) {
+    const compras = p.comprasVerificadas || 0;
+    const partes = [];
+    if (p.avaliacao != null) partes.push(`<span class="estrela" aria-hidden="true">★</span><span>${p.avaliacao.toLocaleString('pt-BR')}</span>`);
+    if (compras > 0) partes.push(`<span>${partes.length ? '· ' : ''}${compras} ${compras === 1 ? 'compra verificada' : 'compras verificadas'}</span>`);
+    return partes.length ? `<p class="avaliacao">${partes.join(' ')}</p>` : '';
+  }
+
   async function telaProduto([id]) {
     const p = await API.produto(id);
     const vistas = p.imagens && p.imagens.length
@@ -384,10 +399,7 @@
           </div>
           <span class="produto__preco">${brl(p.preco)}</span>
         </div>
-        <p class="avaliacao">
-          <span class="estrela" aria-hidden="true">★</span>
-          <span>${p.avaliacao.toLocaleString('pt-BR')} · ${p.comprasVerificadas} compras verificadas</span>
-        </p>
+        ${avaliacao(p)}
         <p style="margin-top:10px">${badgeEstoque(p.estoque)}</p>
 
         <div class="pilha pilha--topo">
@@ -581,7 +593,8 @@
         if (!alvo) return;
         if (window.QRCode) {
           new window.QRCode(alvo, {
-            text: ped.codigo, width: 200, height: 200,
+            // a API gera um UUID para o QR Code; o código curto fica para digitar
+            text: ped.qrCodigo || ped.codigo, width: 200, height: 200,
             colorDark: '#0e3d3c', colorLight: '#ffffff',
             correctLevel: window.QRCode.CorrectLevel.M,
           });
@@ -687,6 +700,7 @@
           <a class="btn btn--contorno btn--bloco" href="#/pedidos">Meus pedidos</a>
           <a class="btn btn--contorno btn--bloco" href="#/lojista">Área do lojista</a>
         </div>
+        ${API.restaurarDemo ? `
         <section class="secao">
           <h2 class="secao__titulo">Demonstração</h2>
           <p class="suave pequeno">Os dados desta versão ficam só neste navegador.</p>
@@ -694,9 +708,11 @@
             <button class="btn btn--link" type="button" data-restaurar>Restaurar dados de demonstração</button>
           </div>
           <div data-msg></div>
-        </section>`,
+        </section>` : ''}`,
       montar: (raiz) => {
-        raiz.querySelector('[data-restaurar]').addEventListener('click', () => {
+        const restaurar = raiz.querySelector('[data-restaurar]');
+        if (!restaurar) return;
+        restaurar.addEventListener('click', () => {
           API.restaurarDemo();
           raiz.querySelector('[data-msg]').innerHTML = '<p class="alerta alerta--ok" role="status">Dados restaurados.</p>';
         });
@@ -711,7 +727,8 @@
   }
 
   async function telaPainel() {
-    const painel = await API.painelLoja(LOJA_DEMO);
+    const lojaId = await lojaAtual();
+    const painel = await API.painelLoja(lojaId);
     const aguardando = painel.aguardandoRetirada;
     return {
       titulo: painel.loja.nome,
@@ -766,7 +783,13 @@
       montar: (raiz) => {
         raiz.querySelectorAll('[data-ajuste]').forEach((b) => b.addEventListener('click', async () => {
           const id = Number(b.dataset.produto);
-          const n = await API.ajustarEstoque(LOJA_DEMO, id, Number(b.dataset.ajuste));
+          let n;
+          try {
+            n = await API.ajustarEstoque(lojaId, id, Number(b.dataset.ajuste));
+          } catch (err) {
+            alertaFlutuante(err.message);
+            return;
+          }
           const out = raiz.querySelector(`[data-qtd="${id}"]`);
           out.textContent = n;
           out.classList.toggle('zero', n < 1);
@@ -780,7 +803,8 @@
   // ---------- Tela 8: Validar retirada (RF006, RF008) ----------
 
   async function telaValidar() {
-    const painel = await API.painelLoja(LOJA_DEMO);
+    const lojaId = await lojaAtual();
+    const painel = await API.painelLoja(lojaId);
     const codigos = painel.aguardandoRetirada.map((p) => p.codigo);
     return {
       titulo: 'Validar retirada',
@@ -820,7 +844,10 @@
             return;
           }
           try {
-            const ped = await API.validarCodigo(LOJA_DEMO, campo.value);
+            const ped = await API.validarCodigo(lojaId, campo.value);
+            const nomeCliente = ped.cliente ? ped.cliente.nome : `${API.cliente().nome} ${API.cliente().sobrenome}`;
+            const [primeiro, ...resto] = nomeCliente.split(' ');
+            const clienteCurto = resto.length ? `${primeiro} ${resto[resto.length - 1][0]}.` : primeiro;
             resultado.innerHTML = `
               <div class="card" style="margin-top:20px">
                 <span class="badge badge--ok">Código válido</span>
@@ -828,7 +855,7 @@
                   ${midia(ped.produto, 'thumb--p')}
                   <div class="item__info">
                     <span class="item__nome">${esc(ped.produto.nome)}, pedido ${ped.id}</span>
-                    <span class="suave pequeno">${esc(API.cliente().nome)} ${esc(API.cliente().sobrenome[0])}., pago em ${dataCurta(ped.pagoEm)}</span>
+                    <span class="suave pequeno">${esc(clienteCurto)}, pago em ${dataCurta(ped.pagoEm)}</span>
                   </div>
                 </div>
                 <button class="btn btn--primario btn--bloco" type="button" data-confirmar style="margin-top:16px">Confirmar retirada</button>
@@ -836,7 +863,7 @@
             resultado.querySelector('[data-confirmar]').addEventListener('click', async (ev) => {
               ev.currentTarget.disabled = true;
               try {
-                await API.confirmarRetirada(LOJA_DEMO, ped.codigo);
+                await API.confirmarRetirada(lojaId, ped.codigo);
                 resultado.innerHTML = `<p class="alerta alerta--ok" role="status">Retirada confirmada. O pedido ${ped.id} foi para o histórico do cliente.</p>`;
                 form.reset();
                 raiz.querySelector(`[data-preencher="${ped.codigo}"]`)?.remove();
@@ -873,10 +900,38 @@
     };
   }
 
+  // ---------- avisos ----------
+
+  function alertaFlutuante(texto) {
+    const el = document.createElement('p');
+    el.className = 'alerta alerta--erro toast';
+    el.setAttribute('role', 'alert');
+    el.textContent = texto;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
   // ---------- início ----------
 
-  window.addEventListener('hashchange', rotear);
-  rotear();
+  async function iniciar() {
+    const cfg = window.ZAPTOS_CONFIG || {};
+    if (cfg.modo === 'api' && window.ZaptosApiRemota) {
+      try {
+        await window.ZaptosApiRemota.iniciar();
+        API = window.ZaptosApiRemota;
+      } catch (err) {
+        console.warn('API indisponível; usando dados de demonstração.', err);
+        API = window.ZaptosApiDemo;
+        const aviso = document.getElementById('aviso-modo');
+        aviso.textContent = 'Servidor fora do ar: mostrando dados de demonstração.';
+        aviso.hidden = false;
+      }
+    }
+    window.addEventListener('hashchange', rotear);
+    rotear();
+  }
+
+  iniciar();
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('sw.js').catch(() => { /* PWA opcional */ });

@@ -2,13 +2,15 @@
 // Estratégia "rede primeiro": sempre tenta buscar a versão mais nova e
 // usa o cache só quando o aparelho estiver sem internet.
 
-const CACHE = 'zaptos-v1';
+const CACHE = 'zaptos-v2';
 const ARQUIVOS = [
   './',
   './index.html',
   './css/styles.css',
+  './js/config.js',
   './js/data.js',
   './js/api.js',
+  './js/api-remota.js',
   './js/app.js',
   './manifest.webmanifest',
   './img/icon.svg',

@@ -103,6 +103,8 @@
   // ---------- funções públicas ----------
 
   const API = {
+    modo: 'demo',
+
     cliente() {
       return D.cliente;
     },
@@ -297,6 +299,11 @@
       return completarPedido(real);
     },
 
+    // Loja usada no painel do lojista de demonstração.
+    async lojaDoLojista() {
+      return 1; // Casa e Cia
+    },
+
     // Volta os dados de demonstração ao estado inicial.
     restaurarDemo() {
       st = estadoInicial();
@@ -304,5 +311,5 @@
     },
   };
 
-  window.ZaptosAPI = API;
+  window.ZaptosApiDemo = API;
 })();

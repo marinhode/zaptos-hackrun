@@ -146,6 +146,27 @@ main:focus { outline: none; }
 
 .carregando { color: var(--suave); text-align: center; padding: 40px 0; }
 
+.aviso-modo {
+  margin: 14px 20px 0;
+  padding: 10px 14px;
+  border-radius: var(--raio-p);
+  background: var(--aviso-fundo);
+  color: var(--aviso-texto);
+  font-size: .875rem;
+  font-weight: 600;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--tabbar-h) + 16px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 30;
+  width: min(440px, calc(100% - 32px));
+  margin: 0;
+  box-shadow: var(--sombra);
+}
+
 /* ---------- Seções e textos ---------- */
 
 .secao { margin-top: 28px; }
