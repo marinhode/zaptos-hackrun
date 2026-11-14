@@ -121,6 +121,8 @@
       e.preventDefault();
       const q = new URLSearchParams(consultaAtual || '');
       const termo = form.q.value.trim();
+      // Easter Egg do HACKRUN 2026: sexta-feira 13
+      if (/^(sexta(-|\s)?feira\s*13|sexta\s*13|13)$/i.test(termo)) { easterEgg13(); return; }
       if (termo) q.set('q', termo); else q.delete('q');
       const s = q.toString();
       ir('#/buscar' + (s ? '?' + s : ''), !!naTelaDeBusca);
@@ -1514,6 +1516,28 @@
       html: vazio('alerta', err && err.codigo === 'NAO_ENCONTRADO' ? err.message : 'Não foi possível carregar esta tela.',
         'Tente novamente em instantes.', '<a class="btn btn--primario" href="#/">Ir para o início</a>'),
     };
+  }
+
+  // ---------- Easter Egg: sexta-feira 13 (missão do HACKRUN 2026) ----------
+  function easterEgg13() {
+    const el = document.createElement('div');
+    el.className = 'ovo13';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-label', 'Sexta-feira 13');
+    el.innerHTML = `
+      <svg class="ovo13__gato" viewBox="0 0 64 40" aria-hidden="true">
+        <path d="M8 34c0-10 8-16 20-16h14l6-8 2 9c6 2 8 8 8 15H48c0-4-3-6-6-6s-6 2-6 6H24c0-4-3-6-6-6s-6 2-6 6z"/>
+        <path d="M56 26c4-2 6-6 6-12" fill="none" stroke="#111" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="47" cy="17" r="1.6" fill="#c9a24a"/>
+      </svg>
+      <p class="ovo13__texto"><strong>Sexta-feira 13 no Capim Dourado</strong>
+        Aqui nenhum produto some: o estoque fica separado para você. Reserve com garantia!</p>
+      <button class="btn btn--destaque" type="button">Sem medo, voltar</button>`;
+    document.body.appendChild(el);
+    const fechar = () => el.remove();
+    el.querySelector('button').addEventListener('click', fechar);
+    el.querySelector('button').focus();
+    setTimeout(fechar, 9000);
   }
 
   // ---------- avisos ----------
