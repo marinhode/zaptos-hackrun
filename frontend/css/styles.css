@@ -133,7 +133,25 @@ button, input, select { font: inherit; color: inherit; }
 .topbar h1 { font-size: 1.65rem; font-weight: 750; letter-spacing: -.02em; }
 .topbar p { margin-top: 2px; font-size: .95rem; opacity: .85; }
 .topbar p:empty { display: none; }
-.topbar__logo { width: 38px; height: 38px; flex: none; }
+/* logo oficial (132×70 px): mostrado no tamanho original ou menor, para não borrar */
+.topbar__marca { flex: none; width: auto; height: 40px; }
+.topbar--marca .topbar__marca { height: 58px; margin: -6px 0 -4px -4px; }
+.topbar--marca h1 {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.topbar--marca .topbar__textos { padding-left: 14px; border-left: 1px solid rgba(201, 162, 74, .45); }
+.topbar--marca p { margin-top: 0; font-family: var(--fonte-titulo); font-size: 1.05rem; font-weight: 650; opacity: 1; }
+
+.aviso-academico {
+  margin-top: 32px;
+  padding-top: 14px;
+  border-top: 1px solid var(--borda);
+  color: var(--suave);
+  font-size: .8rem;
+  line-height: 1.45;
+  text-align: center;
+}
 .topbar__voltar {
   flex: none;
   display: grid; place-items: center;

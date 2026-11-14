@@ -237,7 +237,9 @@
     elTitulo.textContent = v.titulo;
     elSubtitulo.textContent = v.subtitulo || '';
     document.title = `${v.titulo} · Capim Dourado`;
-    elLogo.toggleAttribute('hidden', !v.logo); // SVG não tem a propriedade .hidden
+    elLogo.hidden = !v.logo;
+    // Na tela inicial, o logo já diz "Capim Dourado Shopping": o título fica só para leitores de tela.
+    elLogo.closest('.topbar').classList.toggle('topbar--marca', !!v.logo && v.titulo === 'Capim Dourado');
     btnVoltar.hidden = !v.voltar;
     btnVoltar.dataset.destino = typeof v.voltar === 'string' ? v.voltar : '';
 
@@ -854,11 +856,17 @@
             <p class="suave">Piso 1, ao lado da praça de alimentação · 10h às 22h</p>
           </div>
           <p class="nota">Em breve: assistente virtual e conversa direta com a loja pelo app.</p>
+          ${avisoAcademico()}
         </section>`,
     };
   }
 
   // ---------- Perfil ----------
+
+  // O logo e o nome do shopping são usados com autorização, só para a apresentação.
+  function avisoAcademico() {
+    return `<p class="aviso-academico">Projeto acadêmico do HACKRUN 2026 (Desafio 04). Não é o aplicativo oficial do Capim Dourado Shopping; produtos e preços são de demonstração.</p>`;
+  }
 
   async function telaPerfil() {
     const s = sessao();
@@ -872,7 +880,8 @@
           <div class="pilha">
             <a class="btn btn--primario btn--bloco" href="#/entrar?volta=${encodeURIComponent('#/perfil')}">Entrar</a>
             <a class="btn btn--contorno btn--bloco" href="#/cadastro?volta=${encodeURIComponent('#/perfil')}">Criar conta</a>
-          </div>`,
+          </div>
+          ${avisoAcademico()}`,
       };
     }
 
@@ -908,7 +917,8 @@
             <button class="btn btn--link" type="button" data-restaurar>Restaurar dados de demonstração</button>
           </div>
           <div data-msg></div>
-        </section>` : ''}`,
+        </section>` : ''}
+        ${avisoAcademico()}`,
       montar: (raiz) => {
         const sair = raiz.querySelector('[data-sair]');
         if (sair) {
@@ -973,7 +983,8 @@
         <p class="suave" style="margin-top:24px;text-align:center">
           Ainda não tem conta? <a href="#/cadastro${volta ? `?volta=${encodeURIComponent(volta)}` : ''}">Criar conta</a>
         </p>
-        <p class="nota">Lojistas: a conta da loja é criada pela administração do shopping.</p>`,
+        <p class="nota">Lojistas: a conta da loja é criada pela administração do shopping.</p>
+        ${avisoAcademico()}`,
       montar: (raiz) => {
         const form = raiz.querySelector('[data-entrar]');
         const erroEl = raiz.querySelector('[data-erro]');
