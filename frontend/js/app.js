@@ -157,6 +157,8 @@
     [/^\/lojista\/validar$/, telaValidar],
     [/^\/entrar$/, telaEntrar],
     [/^\/cadastro$/, telaCadastro],
+    [/^\/lojista\/produto\/novo$/, telaProdutoLojista],
+    [/^\/lojista\/produto\/(\d+)$/, telaProdutoLojista],
   ];
 
   // ---------- sessão e acesso por perfil (RF015, RNF006) ----------
@@ -961,8 +963,12 @@
             ${painel.produtos.map((p) => `
               <li class="item">
                 <div class="item__info">
-                  <span class="item__nome">${esc(p.nome)}</span>
-                  <span class="suave pequeno" data-rotulo="${p.id}">${rotuloEstoque(p.estoque)}</span>
+                  ${API.produtoDoLojista
+                    ? `<a class="item__nome" href="#/lojista/produto/${p.id}">${esc(p.nome)}</a>`
+                    : `<span class="item__nome">${esc(p.nome)}</span>`}
+                  ${p.ativo === false
+                    ? '<span class="badge badge--neutro">Desativado: não aparece no app</span>'
+                    : `<span class="suave pequeno" data-rotulo="${p.id}">${rotuloEstoque(p.estoque)}</span>`}
                 </div>
                 <div class="contador" role="group" aria-label="Estoque de ${esc(p.nome)}">
                   <button type="button" data-ajuste="-1" data-produto="${p.id}" aria-label="Diminuir" ${p.estoque < 1 ? 'disabled' : ''}>−</button>
@@ -990,9 +996,9 @@
 
         <div class="pilha pilha--topo">
           <a class="btn btn--destaque btn--bloco" href="#/lojista/validar">Ler QR Code de retirada</a>
-          <button class="btn btn--contorno btn--bloco" type="button" disabled>
-            Cadastrar produto <span class="em-breve">em breve</span>
-          </button>
+          ${API.criarProduto
+            ? '<a class="btn btn--contorno btn--bloco" href="#/lojista/produto/novo">Cadastrar produto</a>'
+            : '<button class="btn btn--contorno btn--bloco" type="button" disabled>Cadastrar produto <span class="em-breve">com o servidor</span></button>'}
         </div>`,
       montar: (raiz) => {
         raiz.querySelectorAll('[data-ajuste]').forEach((b) => b.addEventListener('click', async () => {
@@ -1007,9 +1013,209 @@
           const out = raiz.querySelector(`[data-qtd="${id}"]`);
           out.textContent = n;
           out.classList.toggle('zero', n < 1);
-          raiz.querySelector(`[data-rotulo="${id}"]`).textContent = rotuloEstoque(n);
+          const rotulo = raiz.querySelector(`[data-rotulo="${id}"]`);
+          if (rotulo) rotulo.textContent = rotuloEstoque(n);
           raiz.querySelector(`[data-ajuste="-1"][data-produto="${id}"]`).disabled = n < 1;
         }));
+      },
+    };
+  }
+
+  // ---------- Cadastro e edição de produto pelo lojista (RF013) ----------
+
+  // Aceita "1.290,50", "1290,50" e "1290.50".
+  function lerPreco(texto) {
+    let t = String(texto || '').trim().replace(/^R\$\s*/i, '');
+    if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');
+    const n = Number(t);
+    return Number.isFinite(n) ? Math.round(n * 100) / 100 : NaN;
+  }
+
+  const valorPreco = (n) => (n == null ? '' : n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+  function camposProduto(p, novo) {
+    const m = (p && p.medidas) || {};
+    return `
+      <div class="campo">
+        <label for="nome">Nome do produto</label>
+        <input id="nome" name="nome" required maxlength="150" value="${esc(p ? p.nome : '')}">
+      </div>
+      <div class="campo">
+        <label for="descricao">Descrição <span class="suave">(opcional)</span></label>
+        <textarea id="descricao" name="descricao" rows="3" maxlength="2000">${esc(p && p.descricao ? p.descricao : '')}</textarea>
+      </div>
+      <div class="campo">
+        <label for="preco">Preço (R$)</label>
+        <input id="preco" name="preco" inputmode="decimal" required placeholder="0,00" value="${esc(valorPreco(p && p.preco))}">
+      </div>
+      <fieldset class="campo-grupo">
+        <legend>Medidas em cm <span class="suave">(opcional: preencha as três)</span></legend>
+        <div class="medidas-form">
+          <div class="campo"><label for="largura">Largura</label><input id="largura" name="largura" type="number" min="0.1" step="0.1" inputmode="decimal" value="${m.largura ?? ''}"></div>
+          <div class="campo"><label for="altura">Altura</label><input id="altura" name="altura" type="number" min="0.1" step="0.1" inputmode="decimal" value="${m.altura ?? ''}"></div>
+          <div class="campo"><label for="profundidade">Profund.</label><input id="profundidade" name="profundidade" type="number" min="0.1" step="0.1" inputmode="decimal" value="${m.profundidade ?? ''}"></div>
+        </div>
+      </fieldset>
+      ${novo ? `
+      <div class="campo">
+        <label for="estoque">Unidades em estoque</label>
+        <input id="estoque" name="estoque" type="number" min="0" step="1" inputmode="numeric" value="1" required>
+      </div>` : `
+      <label class="alternar">
+        <input type="checkbox" name="ativo" ${p.ativo === false ? '' : 'checked'}>
+        <span>Visível no app para os clientes</span>
+      </label>`}`;
+  }
+
+  // Lê o formulário e confere antes de enviar; devolve {dados} ou {erro}.
+  function lerFormularioProduto(form, novo) {
+    const nome = form.nome.value.trim();
+    const preco = lerPreco(form.preco.value);
+    const medidas = ['largura', 'altura', 'profundidade'].map((c) => form[c].value.trim());
+    if (nome.length < 2) return { erro: 'Informe o nome do produto.' };
+    if (!(preco > 0)) return { erro: 'Informe um preço válido, por exemplo 1.290,00.' };
+    const preenchidas = medidas.filter(Boolean).length;
+    if (preenchidas && preenchidas < 3) return { erro: 'Preencha largura, altura e profundidade, ou deixe as três em branco.' };
+    if (medidas.some((v) => v && !(Number(v) > 0))) return { erro: 'As medidas precisam ser maiores que zero.' };
+
+    const dados = {
+      nome,
+      descricao: form.descricao.value.trim() || null,
+      preco: preco.toFixed(2),
+      largura: medidas[0] ? Number(medidas[0]) : null,
+      altura: medidas[1] ? Number(medidas[1]) : null,
+      profundidade: medidas[2] ? Number(medidas[2]) : null,
+    };
+    if (novo) {
+      const estoque = Number(form.estoque.value);
+      if (!Number.isInteger(estoque) || estoque < 0) return { erro: 'O estoque precisa ser um número inteiro, 0 ou mais.' };
+      dados.estoque = estoque;
+    } else {
+      dados.ativo = form.ativo.checked;
+    }
+    return { dados };
+  }
+
+  function htmlGaleriaEdicao(p) {
+    const fotos = p.galeria || [];
+    return `
+      <div class="galeria-edicao">
+        ${fotos.map((img, i) => `
+          <figure>
+            <img src="${esc(img.url)}" alt="${esc(p.nome)}, foto ${i + 1}" data-fallback>
+            ${i === 0 ? '<figcaption>Principal</figcaption>' : ''}
+            <button type="button" class="galeria-edicao__remover" data-remover="${img.id}" aria-label="Remover foto ${i + 1}">×</button>
+          </figure>`).join('')}
+      </div>
+      ${fotos.length ? '' : '<p class="suave pequeno">Nenhuma foto ainda. Sem foto, o app mostra uma ilustração.</p>'}
+      ${fotos.length < 6 ? `
+      <label class="btn btn--contorno btn--bloco envio" style="margin-top:12px">
+        Adicionar fotos
+        <input type="file" accept="image/jpeg,image/png,image/webp" multiple data-arquivos>
+      </label>
+      <p class="suave pequeno" style="margin-top:6px">JPG, PNG ou WebP, até 8 MB cada (máximo 6 fotos). A primeira é a principal. As fotos são reduzidas automaticamente.</p>` : '<p class="suave pequeno">Limite de 6 fotos atingido.</p>'}
+      <div data-msg-fotos aria-live="polite"></div>`;
+  }
+
+  async function telaProdutoLojista([id], consulta) {
+    if (!API.criarProduto) {
+      return {
+        titulo: 'Cadastrar produto', aba: null, voltar: '#/lojista',
+        html: vazio('alerta', 'Disponível só com o servidor', 'O cadastro de produtos precisa da API ligada.'),
+      };
+    }
+    const lojaId = await lojaAtual();
+    const novo = !id;
+    const p = novo ? null : await API.produtoDoLojista(id);
+
+    return {
+      titulo: novo ? 'Cadastrar produto' : 'Editar produto',
+      subtitulo: novo ? 'Novo item da loja' : p.nome,
+      aba: null,
+      voltar: '#/lojista',
+      html: `
+        ${consulta.get('criado') ? '<p class="alerta alerta--ok" role="status" style="margin-top:0">Produto cadastrado. Agora adicione as fotos.</p>' : ''}
+        <form class="pilha" data-produto novalidate>
+          ${camposProduto(p, novo)}
+          <div data-erro aria-live="polite"></div>
+          <button class="btn btn--primario btn--bloco" type="submit">${novo ? 'Cadastrar e adicionar fotos' : 'Salvar alterações'}</button>
+        </form>
+        ${novo ? '' : `
+        <section class="secao" aria-labelledby="t-fotos">
+          <h2 class="secao__titulo" id="t-fotos">Fotos</h2>
+          <div data-galeria>${htmlGaleriaEdicao(p)}</div>
+        </section>
+        <a class="btn btn--link" href="#/produto/${p.id}">Ver como o cliente vê</a>`}`,
+      montar: (raiz) => {
+        const form = raiz.querySelector('[data-produto]');
+        const erroEl = raiz.querySelector('[data-erro]');
+        const botao = form.querySelector('button[type=submit]');
+        const textoBotao = botao.textContent;
+
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const { dados, erro } = lerFormularioProduto(form, novo);
+          if (erro) { erroEl.innerHTML = `<p class="alerta alerta--erro" role="alert">${esc(erro)}</p>`; return; }
+          erroEl.innerHTML = '';
+          botao.disabled = true;
+          botao.textContent = 'Salvando…';
+          try {
+            if (novo) {
+              const criado = await API.criarProduto(lojaId, dados);
+              ir(`#/lojista/produto/${criado.id}?criado=1`, true);
+              return;
+            }
+            const salvo = await API.editarProduto(p.id, dados);
+            elSubtitulo.textContent = salvo.nome;
+            erroEl.innerHTML = '<p class="alerta alerta--ok" role="status">Alterações salvas.</p>';
+          } catch (err) {
+            erroEl.innerHTML = `<p class="alerta alerta--erro" role="alert">${esc(err.message)}</p>`;
+          }
+          botao.disabled = false;
+          botao.textContent = textoBotao;
+        });
+
+        if (novo) return;
+        const area = raiz.querySelector('[data-galeria]');
+        let produtoAtual = p;
+
+        const redesenhar = (msg) => {
+          area.innerHTML = htmlGaleriaEdicao(produtoAtual);
+          if (msg) area.querySelector('[data-msg-fotos]').innerHTML = msg;
+        };
+
+        area.addEventListener('click', async (e) => {
+          const botaoRemover = e.target.closest('[data-remover]');
+          if (!botaoRemover) return;
+          botaoRemover.disabled = true;
+          try {
+            produtoAtual = await API.apagarImagem(produtoAtual.id, Number(botaoRemover.dataset.remover));
+            redesenhar('<p class="alerta alerta--ok" role="status">Foto removida.</p>');
+          } catch (err) {
+            botaoRemover.disabled = false;
+            alertaFlutuante(err.message);
+          }
+        });
+
+        area.addEventListener('change', async (e) => {
+          const entrada = e.target.closest('[data-arquivos]');
+          if (!entrada || !entrada.files.length) return;
+          const arquivos = [...entrada.files];
+          const msg = area.querySelector('[data-msg-fotos]');
+          const erros = [];
+          for (let i = 0; i < arquivos.length; i++) {
+            msg.innerHTML = `<p class="nota" role="status">Enviando foto ${i + 1} de ${arquivos.length}…</p>`;
+            try {
+              produtoAtual = await API.enviarImagem(produtoAtual.id, arquivos[i]);
+            } catch (err) {
+              erros.push(`${arquivos[i].name}: ${err.message}`);
+              if (err.codigo === 'LIMITE_IMAGENS') break;
+            }
+          }
+          redesenhar(erros.length
+            ? `<p class="alerta alerta--erro" role="alert">${erros.map(esc).join('<br>')}</p>`
+            : '<p class="alerta alerta--ok" role="status">Fotos enviadas.</p>');
+        });
       },
     };
   }

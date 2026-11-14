@@ -16,8 +16,9 @@ def data_iso(valor: datetime | None) -> str | None:
 
 # ---------- produtos ----------
 
-SQL_PRODUTO = """
-SELECT p.id, p.loja_id, p.nome, p.descricao, p.preco,
+# Sem filtro: usado pelo lojista, que também vê os produtos desativados.
+SQL_PRODUTO_TODOS = """
+SELECT p.id, p.loja_id, p.nome, p.descricao, p.preco, p.ativo,
        p.largura_cm, p.altura_cm, p.profundidade_cm,
        e.quantidade_disponivel AS estoque,
        l.nome AS loja_nome, l.piso, l.localizacao, l.horario_funcionamento,
@@ -29,8 +30,10 @@ SELECT p.id, p.loja_id, p.nome, p.descricao, p.preco,
   JOIN estoque e   ON e.produto_id = p.id
   JOIN loja l      ON l.id = p.loja_id
   JOIN categoria c ON c.id = l.categoria_id
- WHERE p.ativo AND l.ativa
 """
+
+# Catálogo público: só produtos e lojas ativos.
+SQL_PRODUTO = SQL_PRODUTO_TODOS + " WHERE p.ativo AND l.ativa\n"
 
 
 def imagens_por_produto(cur, ids: list[int]) -> dict[int, list[dict]]:
@@ -38,14 +41,14 @@ def imagens_por_produto(cur, ids: list[int]) -> dict[int, list[dict]]:
         return {}
     marcadores = ", ".join(["%s"] * len(ids))
     cur.execute(
-        f"SELECT produto_id, url, texto_alternativo FROM produto_imagem "
+        f"SELECT id, produto_id, url, texto_alternativo FROM produto_imagem "
         f"WHERE produto_id IN ({marcadores}) ORDER BY produto_id, ordem",
         ids,
     )
     resultado: dict[int, list[dict]] = {}
     for linha in cur.fetchall():
         resultado.setdefault(linha["produto_id"], []).append(
-            {"url": linha["url"], "alt": linha["texto_alternativo"]}
+            {"id": linha["id"], "url": linha["url"], "alt": linha["texto_alternativo"]}
         )
     return resultado
 
@@ -58,6 +61,7 @@ def formatar_produto(linha: dict, imagens: list[dict]) -> dict:
         "nome": linha["nome"],
         "descricao": linha["descricao"],
         "preco": numero(linha["preco"]),
+        "ativo": bool(linha["ativo"]),
         "estoque": linha["estoque"],
         "medidas": {
             "largura": numero(linha["largura_cm"]),

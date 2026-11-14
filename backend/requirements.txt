@@ -5,6 +5,8 @@ cryptography>=42      # necessário para o login padrão do MySQL 8 (caching_sha
 python-dotenv>=1.0
 bcrypt>=4.1           # hash das senhas
 PyJWT>=2.8            # token de login
+python-multipart>=0.0.9  # envio de imagens (formulário com arquivo)
+Pillow>=10.4          # validar, reduzir e converter imagens para WebP
 
 # testes
 pytest>=8

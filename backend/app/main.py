@@ -78,3 +78,13 @@ for modulo in (catalogo, reservas, pedidos, lojista, usuarios):
 from .modulos import autenticacao  # noqa: E402
 
 app.include_router(autenticacao.router, prefix="/api")
+
+# Cadastro de produtos pelo lojista e imagens enviadas (servidas em /uploads)
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+
+from .imagens import PASTA_UPLOADS  # noqa: E402
+from .modulos import produtos_lojista  # noqa: E402
+
+app.include_router(produtos_lojista.router, prefix="/api")
+PASTA_UPLOADS.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=PASTA_UPLOADS), name="uploads")

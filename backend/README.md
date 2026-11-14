@@ -55,6 +55,10 @@ Todas começam com `/api`.
 | GET | `/seller/stores` | lojista | minhas lojas |
 | GET | `/seller/stores/{id}/dashboard` | lojista | reservas de hoje, estoque e retiradas pendentes |
 | PATCH | `/seller/products/{id}/stock` | lojista | soma ou subtrai do estoque (`{"delta": 1}`) |
+| POST | `/seller/stores/{id}/products` | lojista | cadastra produto (`nome`, `descricao`, `preco`, `largura`/`altura`/`profundidade` em cm, `estoque`) |
+| GET · PATCH | `/seller/products/{id}` | lojista | vê ou edita o produto; `{"ativo": false}` tira do app |
+| POST | `/seller/products/{id}/images` | lojista | envia foto (formulário com o campo `arquivo`); até 6 por produto |
+| DELETE | `/seller/products/{id}/images/{imagemId}` | lojista | remove a foto |
 | GET | `/seller/stores/{id}/pickups/{codigo}` | lojista | valida o código do cliente |
 | POST | `/seller/stores/{id}/pickups/{codigo}/confirm` | lojista | confirma a retirada |
 
@@ -78,6 +82,12 @@ Erros de regra voltam como `{"codigo": "SEM_ESTOQUE", "mensagem": "..."}`, com o
 - Só **clientes** se cadastram sozinhos. Contas de lojista, atendente e administrador são criadas pelo shopping.
 - As contas de teste do seed estão em `db/README.md`.
 - `DEMO_AUTH=1` aceita o cabeçalho `X-Usuario-Id` no lugar do token. É usado pelos testes; **nunca ligue fora do desenvolvimento**.
+
+## Imagens dos produtos (RF013, RNF001)
+
+- O servidor abre cada foto enviada e só aceita JPEG, PNG ou WebP de verdade. Não confia na extensão do arquivo.
+- Ele corrige a rotação da foto do celular, reduz para no máximo 1200 px e regrava em WebP, ficando abaixo de 500 KB.
+- Os arquivos ficam em `backend/uploads/produtos/` (fora do git) e são servidos em `/uploads/...`.
 
 ## Provisório
 

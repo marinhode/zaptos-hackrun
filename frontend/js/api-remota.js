@@ -38,7 +38,8 @@
   }
 
   // auth: envia o token do usuário logado (rotas de cliente e de lojista)
-  async function chamar(caminho, { metodo = 'GET', corpo, auth = true, params } = {}) {
+  // formulario: FormData (envio de arquivo); o navegador define o Content-Type
+  async function chamar(caminho, { metodo = 'GET', corpo, formulario, auth = true, params } = {}) {
     const url = new URL(BASE + caminho);
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
@@ -49,10 +50,11 @@
     const token = lerToken();
     if (auth && token) headers.Authorization = `Bearer ${token}`;
     if (corpo !== undefined) headers['Content-Type'] = 'application/json';
+    const body = formulario || (corpo !== undefined ? JSON.stringify(corpo) : undefined);
 
     let resp;
     try {
-      resp = await fetch(url, { method: metodo, headers, body: corpo !== undefined ? JSON.stringify(corpo) : undefined });
+      resp = await fetch(url, { method: metodo, headers, body });
     } catch (e) {
       throw erro('SEM_CONEXAO', 'Não foi possível falar com o servidor. Verifique a conexão e tente de novo.');
     }
@@ -103,11 +105,17 @@
     };
   }
 
+  // Imagens enviadas ficam na API ("/uploads/..."): completa com o endereço dela.
+  const ORIGEM_API = (() => { try { return new URL(BASE).origin; } catch (e) { return ''; } })();
+  const urlAbsoluta = (u) => (u && u.startsWith('/') ? ORIGEM_API + u : u);
+
   function adaptarProduto(p) {
     return {
       ...p,
       icone: iconePara(p.nome),
-      imagens: (p.imagens || []).map((i) => i.url),
+      imagens: (p.imagens || []).map((i) => urlAbsoluta(i.url)),
+      // com id, para o lojista poder remover cada imagem
+      galeria: (p.imagens || []).map((i) => ({ id: i.id, url: urlAbsoluta(i.url) })),
       loja: adaptarLoja(p.loja, p.categoria),
     };
   }
@@ -243,6 +251,30 @@
     async confirmarRetirada(lojaId, codigo) {
       const c = encodeURIComponent(String(codigo || '').trim());
       return adaptarPedido(await chamar(`/seller/stores/${lojaId}/pickups/${c}/confirm`, { metodo: 'POST' }));
+    },
+
+    // ---------- cadastro de produtos pelo lojista ----------
+
+    async produtoDoLojista(id) {
+      return adaptarProduto(await chamar(`/seller/products/${id}`));
+    },
+
+    async criarProduto(lojaId, dados) {
+      return adaptarProduto(await chamar(`/seller/stores/${lojaId}/products`, { metodo: 'POST', corpo: dados }));
+    },
+
+    async editarProduto(id, dados) {
+      return adaptarProduto(await chamar(`/seller/products/${id}`, { metodo: 'PATCH', corpo: dados }));
+    },
+
+    async enviarImagem(id, arquivo) {
+      const formulario = new FormData();
+      formulario.append('arquivo', arquivo);
+      return adaptarProduto(await chamar(`/seller/products/${id}/images`, { metodo: 'POST', formulario }));
+    },
+
+    async apagarImagem(id, imagemId) {
+      return adaptarProduto(await chamar(`/seller/products/${id}/images/${imagemId}`, { metodo: 'DELETE' }));
     },
   };
 

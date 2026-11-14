@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from ..auth import exigir_perfil
 from ..db import liberar_reservas_expiradas, transacao
 from ..erros import ErroNegocio, nao_encontrado
-from ..formatos import SQL_PRODUTO, buscar_pedidos, formatar_produto, imagens_por_produto
+from ..formatos import SQL_PRODUTO_TODOS, buscar_pedidos, formatar_produto, imagens_por_produto
 from ..regras import normalizar_codigo
 
 router = APIRouter(prefix="/seller", tags=["Lojista"])
@@ -47,7 +47,7 @@ def painel(loja_id: int, usuario: dict = Depends(lojista)) -> dict:
             (loja_id,),
         )
         reservas_hoje = cur.fetchone()["n"]
-        cur.execute(SQL_PRODUTO.replace("WHERE p.ativo AND l.ativa", "WHERE p.loja_id = %s") + " ORDER BY p.nome", (loja_id,))
+        cur.execute(SQL_PRODUTO_TODOS + " WHERE p.loja_id = %s ORDER BY p.ativo DESC, p.nome", (loja_id,))
         linhas = cur.fetchall()
         imagens = imagens_por_produto(cur, [l["id"] for l in linhas])
         aguardando = buscar_pedidos(cur, "pe.loja_id = %s AND pe.status = 'aprovado'", (loja_id,))
