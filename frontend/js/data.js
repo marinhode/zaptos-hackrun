@@ -45,7 +45,7 @@ window.ZAPTOS_DADOS = {
     {
       id: 5, lojaId: 2, nome: 'Luminária Arco', preco: 420, icone: 'luminaria', estoque: 4,
       medidas: { largura: 40, altura: 190, profundidade: 120 },
-      avaliacao: 4.7, comprasVerificadas: 15, imagens: [],
+      avaliacao: 4.7, comprasVerificadas: 15, imagens: ['img/produtos/luminaria-arco.png'],
       descricao: 'Luminária de piso com haste curva e cúpula em metal.',
     },
     {
