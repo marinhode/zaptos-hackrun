@@ -45,6 +45,8 @@ img/                  ícone do app e imagem padrão de produto
 | `#/lojista/validar` | Ler o QR Code com a câmera (ou digitar o código) e confirmar a retirada |
 | `#/lojista/produto/novo` | Cadastrar produto (nome, descrição, preço, medidas, estoque) |
 | `#/lojista/produto/:id` | Editar produto, tirar do app e gerenciar as fotos |
+| `#/avisos` | Avisos de pagamento, retirada e reserva expirada (sino no cabeçalho com o número de não lidos) |
+| `#/mapa?loja=:id` | Mapa do shopping com a loja em destaque. O desenho fica em `js/mapa.js` (`window.ZaptosMapa`), carregado só nessa tela; sem ele, mostra "Mapa em breve" com a localização da loja |
 | `#/entrar` | Entrar (cliente ou lojista) |
 | `#/cadastro` | Criar conta de cliente |
 
@@ -89,7 +91,6 @@ Para recomeçar a demonstração: **Perfil → Restaurar dados de demonstração
 ## Ainda não incluído
 
 - Pagamento real pelo PagBank: hoje o botão "Pagar" aprova direto.
-- Mapa do shopping: aparece como "em breve".
 - Cadastro de produtos no modo demonstração: só funciona com a API.
 - Recuperar senha.
 - 3D/AR: evolução futura, conforme a documentação.

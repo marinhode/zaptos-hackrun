@@ -276,6 +276,12 @@
     async apagarImagem(id, imagemId) {
       return adaptarProduto(await chamar(`/seller/products/${id}/images/${imagemId}`, { metodo: 'DELETE' }));
     },
+
+    // ---------- avisos (RF007) ----------
+
+    avisos: () => chamar('/notifications'),
+    marcarAvisosLidos: () => chamar('/notifications/read-all', { metodo: 'POST' }),
+    marcarAvisoLido: (id) => chamar(`/notifications/${id}/read`, { metodo: 'POST' }),
   };
 
   window.ZaptosApiRemota = API;

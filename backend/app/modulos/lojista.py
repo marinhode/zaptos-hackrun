@@ -6,6 +6,7 @@ RN003: a retirada exige pedido pago e código válido, usado uma única vez.
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from .. import avisos
 from ..auth import exigir_perfil
 from ..db import liberar_reservas_expiradas, transacao
 from ..erros import ErroNegocio, nao_encontrado
@@ -115,4 +116,5 @@ def confirmar_retirada(loja_id: int, codigo: str, usuario: dict = Depends(lojist
             (usuario["id"], p["id"]),
         )
         cur.execute("UPDATE pedido SET status = 'retirado' WHERE id = %s", (p["pedido_id"],))
+        avisos.retirada_confirmada(cur, p["pedido_id"])  # RF007
         return buscar_pedidos(cur, "pe.id = %s", (p["pedido_id"],))[0]

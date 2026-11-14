@@ -113,6 +113,27 @@ button, input, select { font: inherit; color: inherit; }
   cursor: pointer;
 }
 .topbar__voltar:hover { background: rgba(255, 255, 255, .12); }
+.topbar__avisos {
+  position: relative;
+  flex: none;
+  margin-left: auto;
+  display: grid; place-items: center;
+  width: 44px; height: 44px;
+  margin-right: -6px;
+  border-radius: 50%;
+  color: #fff;
+}
+.topbar__avisos:hover { background: rgba(255, 255, 255, .12); }
+.topbar__contador {
+  position: absolute; top: 4px; right: 2px;
+  min-width: 20px; height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--terracota);
+  border: 2px solid var(--teal);
+  color: #fff;
+  font-size: .72rem; font-weight: 700; line-height: 16px; text-align: center;
+}
 
 main {
   flex: 1;
@@ -171,6 +192,14 @@ main:focus { outline: none; }
 
 .secao { margin-top: 28px; }
 .secao__titulo { font-size: 1.15rem; font-weight: 700; color: var(--teal-escuro); margin-bottom: 12px; }
+.secao__cabecalho { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.secao__cabecalho a { font-weight: 600; }
+
+.avisos .item { align-items: flex-start; }
+.aviso--novo .item__nome::after { content: ""; display: inline-block; width: 8px; height: 8px; margin-left: 8px; border-radius: 50%; background: var(--terracota); vertical-align: middle; }
+.aviso__icone--pagamento_aprovado, .aviso__icone--retirada_confirmada { background: var(--ok-fundo); color: var(--ok-texto); }
+.aviso__icone--nova_retirada { background: var(--aviso-fundo); color: var(--aviso-texto); }
+.aviso__icone--reserva_expirada { background: var(--perigo-fundo); color: var(--perigo-texto); }
 .suave { color: var(--suave); }
 .pequeno { font-size: .875rem; }
 .nota {

@@ -18,6 +18,8 @@
   const elLogo = document.getElementById('logo');
   const btnVoltar = document.getElementById('btn-voltar');
   const tabbar = document.getElementById('tabbar');
+  const btnAvisos = document.getElementById('btn-avisos');
+  const contadorAvisos = document.getElementById('contador-avisos');
 
   // ---------- utilitários ----------
 
@@ -159,6 +161,8 @@
     [/^\/cadastro$/, telaCadastro],
     [/^\/lojista\/produto\/novo$/, telaProdutoLojista],
     [/^\/lojista\/produto\/(\d+)$/, telaProdutoLojista],
+    [/^\/avisos$/, telaAvisos],
+    [/^\/mapa$/, telaMapa],
   ];
 
   // ---------- sessão e acesso por perfil (RF015, RNF006) ----------
@@ -249,6 +253,123 @@
     window.scrollTo(0, 0);
     if (v.montar) v.montar(conteudo);
     conteudo.focus({ preventScroll: true });
+    atualizarAvisos();
+  }
+
+  // ---------- sino de avisos (RF007) ----------
+
+  let consultandoAvisos = false;
+  async function atualizarAvisos() {
+    const logado = API.avisos && API.usuario && API.usuario();
+    btnAvisos.hidden = !logado;
+    if (!logado || consultandoAvisos) return;
+    consultandoAvisos = true;
+    try {
+      const { naoLidas } = await API.avisos();
+      contadorAvisos.hidden = naoLidas < 1;
+      contadorAvisos.textContent = naoLidas > 9 ? '9+' : String(naoLidas);
+      btnAvisos.setAttribute('aria-label', naoLidas ? `Avisos: ${naoLidas} não lido${naoLidas > 1 ? 's' : ''}` : 'Avisos');
+    } catch (e) {
+      /* sem conexão: tenta de novo na próxima vez */
+    } finally {
+      consultandoAvisos = false;
+    }
+  }
+  // confere de tempos em tempos (só com a aba visível)
+  setInterval(() => { if (!document.hidden) atualizarAvisos(); }, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) atualizarAvisos(); });
+
+  const ICONE_AVISO = {
+    pagamento_aprovado: 'check',
+    nova_retirada: 'sacola',
+    retirada_confirmada: 'check',
+    reserva_expirada: 'alerta',
+  };
+
+  function quandoFoi(iso) {
+    const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (min < 1) return 'agora';
+    if (min < 60) return `há ${min} min`;
+    if (min < 24 * 60) return `há ${Math.round(min / 60)} h`;
+    return dataCurta(iso);
+  }
+
+  async function telaAvisos() {
+    if (!API.avisos) {
+      return { titulo: 'Avisos', aba: 'perfil', voltar: '#/', html: vazio('alerta', 'Disponível só com o servidor', '') };
+    }
+    const s = sessao();
+    if (!s) { irParaEntrar(null); return telaNaoEncontrada(); }
+    const { avisos } = await API.avisos();
+    const destino = (a) => {
+      if (!a.pedidoId) return null;
+      if (s.perfil === 'lojista') return '#/lojista';
+      return `#/pedido/${a.pedidoId}`;
+    };
+    return {
+      titulo: 'Avisos',
+      subtitulo: 'Pagamentos, retiradas e reservas',
+      aba: s.perfil === 'cliente' ? 'pedidos' : null,
+      voltar: true,
+      html: avisos.length ? `
+        <ul class="lista avisos">
+          ${avisos.map((a) => {
+            const link = destino(a);
+            const corpo = `
+              <div class="thumb thumb--p aviso__icone aviso__icone--${esc(a.tipo)}">${icone(ICONE_AVISO[a.tipo] || 'check')}</div>
+              <div class="item__info">
+                <span class="item__nome">${esc(a.titulo)}${a.lido ? '' : '<span class="sr-only"> (novo)</span>'}</span>
+                <span class="suave pequeno">${esc(a.mensagem)}</span>
+                <span class="suave pequeno">${quandoFoi(a.criadoEm)}</span>
+              </div>`;
+            return `<li class="${a.lido ? '' : 'aviso--novo'}">${link ? `<a class="item" href="${link}">${corpo}</a>` : `<div class="item">${corpo}</div>`}</li>`;
+          }).join('')}
+        </ul>` : vazio('check', 'Nenhum aviso por enquanto', 'Quando um pagamento for aprovado ou uma retirada for confirmada, você fica sabendo aqui.'),
+      montar: async () => {
+        // abrir a tela conta como ler os avisos
+        if (avisos.some((a) => !a.lido)) {
+          try { await API.marcarAvisosLidos(); } catch (e) { /* tenta na próxima */ }
+          atualizarAvisos();
+        }
+      },
+    };
+  }
+
+  // ---------- mapa do shopping (RF018) ----------
+  // O desenho do mapa fica em js/mapa.js (window.ZaptosMapa), carregado só aqui.
+
+  let carregandoMapa = null;
+  function carregarMapa() {
+    if (window.ZaptosMapa) return Promise.resolve(true);
+    if (!carregandoMapa) {
+      carregandoMapa = new Promise((ok) => {
+        const css = document.createElement('link');
+        css.rel = 'stylesheet';
+        css.href = 'css/mapa.css';
+        document.head.appendChild(css);
+        const js = document.createElement('script');
+        js.src = 'js/mapa.js';
+        js.onload = () => ok(!!window.ZaptosMapa);
+        js.onerror = () => { carregandoMapa = null; css.remove(); ok(false); };
+        document.head.appendChild(js);
+      });
+    }
+    return carregandoMapa;
+  }
+
+  async function telaMapa(_, consulta) {
+    const destaque = Number(consulta.get('loja')) || null;
+    const [temMapa, lojas] = await Promise.all([carregarMapa(), API.lojas()]);
+    const base = { titulo: 'Mapa do shopping', subtitulo: 'Lojas e serviços', aba: 'inicio', voltar: true };
+    if (!temMapa) {
+      const loja = lojas.find((l) => l.id === destaque);
+      return {
+        ...base,
+        html: vazio('local', 'Mapa em breve', loja ? `${loja.nome} fica no piso ${loja.piso}, loja ${loja.numero}.` : 'Em breve você vai ver aqui a planta de cada piso.'),
+      };
+    }
+    const tela = window.ZaptosMapa.tela({ lojas, lojaDestaque: destaque });
+    return { ...base, html: tela.html, montar: tela.montar };
   }
 
   btnVoltar.addEventListener('click', () => {
@@ -300,7 +421,10 @@
         </section>
 
         <section class="secao" aria-labelledby="t-lojas">
-          <h2 class="secao__titulo" id="t-lojas">Lojas do shopping</h2>
+          <div class="secao__cabecalho">
+            <h2 class="secao__titulo" id="t-lojas">Lojas do shopping</h2>
+            <a class="pequeno" href="#/mapa">Ver mapa</a>
+          </div>
           <ul class="lista">
             ${lojas.map((l) => `
               <li><a class="item" href="#/loja/${l.id}">
@@ -631,9 +755,7 @@
         <p><strong>${localLoja(ped.loja)}</strong></p>
         <p class="suave">${retirado ? `Retirado em ${dataCurta(ped.retiradoEm)}` : `Retire até hoje, ${esc(ped.loja.fechaAs)}`}</p>
         <div class="pilha pilha--topo">
-          <button class="btn btn--contorno btn--bloco" type="button" disabled>
-            Ver no mapa do shopping <span class="em-breve">em breve</span>
-          </button>
+          <a class="btn btn--contorno btn--bloco" href="#/mapa?loja=${ped.loja.id}">Ver no mapa do shopping</a>
           <a class="btn btn--link" href="#/pedidos">Ver meus pedidos</a>
         </div>`,
       montar: (raiz) => {

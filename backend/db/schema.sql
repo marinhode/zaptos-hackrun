@@ -304,6 +304,27 @@ CREATE TABLE registro_admin (
   CONSTRAINT fk_registro_admin_usuario FOREIGN KEY (admin_id) REFERENCES usuario (id)
 ) ENGINE=InnoDB;
 
+-- ---------------------------------------------------------------------
+-- notificacao: avisos dentro do app (RF007)
+--   tipo: pagamento_aprovado, nova_retirada, retirada_confirmada,
+--         reserva_expirada
+--   lida_em: NULL enquanto o usuario nao abriu o aviso
+-- ---------------------------------------------------------------------
+CREATE TABLE notificacao (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  usuario_id  INT UNSIGNED NOT NULL,
+  pedido_id   INT UNSIGNED NULL,
+  tipo        VARCHAR(40)  NOT NULL,
+  titulo      VARCHAR(120) NOT NULL,
+  mensagem    VARCHAR(500) NOT NULL,
+  lida_em     DATETIME     NULL,
+  criado_em   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY ix_notificacao_usuario (usuario_id, lida_em, criado_em),
+  CONSTRAINT fk_notificacao_usuario FOREIGN KEY (usuario_id) REFERENCES usuario (id) ON DELETE CASCADE,
+  CONSTRAINT fk_notificacao_pedido  FOREIGN KEY (pedido_id)  REFERENCES pedido (id)  ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 -- =====================================================================
 -- Gatilhos e rotinas
 -- =====================================================================
@@ -393,6 +414,16 @@ BEGIN
   UPDATE reserva r
     JOIN tmp_reservas_vencidas t ON t.id = r.id
      SET r.status = 'expirada', r.finalizada_em = NOW();
+
+  -- RF007: avisa o cliente (antes de mudar o status, para pegar so os pendentes)
+  INSERT INTO notificacao (usuario_id, pedido_id, tipo, titulo, mensagem)
+  SELECT p.id_usuario, p.id, 'reserva_expirada', 'Sua reserva expirou',
+         CONCAT('O prazo de 15 minutos para pagar o pedido ', p.id,
+                ' acabou e o produto voltou ao estoque da loja.')
+    FROM (SELECT pe.usuario_id AS id_usuario, pe.id
+            FROM pedido pe
+            JOIN (SELECT DISTINCT pedido_id FROM tmp_reservas_vencidas) t ON t.pedido_id = pe.id
+           WHERE pe.status = 'pendente') p;
 
   UPDATE pedido p
     JOIN (SELECT DISTINCT pedido_id FROM tmp_reservas_vencidas) t ON t.pedido_id = p.id

@@ -12,6 +12,7 @@ import pymysql
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from .. import avisos
 from ..auth import exigir_perfil
 from ..config import config
 from ..db import liberar_reservas_expiradas, transacao
@@ -162,19 +163,21 @@ def pagar(reserva_id: int, dados: Pagamento, usuario: dict = Depends(cliente)) -
             " comissao_percentual, status, pago_em) VALUES (%s, %s, %s, %s, %s, 'aprovado', NOW())",
             (reserva["pedido_id"], pedido["valor_total"], valor_lojista, comissao, pedido["comissao_percentual"]),
         )
-        _gerar_protocolo(cur, reserva["pedido_id"])
+        codigo = _gerar_protocolo(cur, reserva["pedido_id"])
+        avisos.pagamento_aprovado(cur, reserva["pedido_id"], codigo)  # RF007
         return buscar_pedidos(cur, "pe.id = %s", (reserva["pedido_id"],))[0]
 
 
-def _gerar_protocolo(cur, pedido_id: int) -> None:
-    """RF008: QR Code (UUID) e código curto únicos para a retirada."""
+def _gerar_protocolo(cur, pedido_id: int) -> str:
+    """RF008: QR Code (UUID) e código curto únicos para a retirada. Devolve o código curto."""
     for _ in range(5):
+        codigo = gerar_codigo_curto(pedido_id)
         try:
             cur.execute(
                 "INSERT INTO protocolo_retirada (pedido_id, codigo, codigo_curto) VALUES (%s, %s, %s)",
-                (pedido_id, str(uuid.uuid4()), gerar_codigo_curto(pedido_id)),
+                (pedido_id, str(uuid.uuid4()), codigo),
             )
-            return
+            return codigo
         except pymysql.err.IntegrityError as erro:
             if "uq_protocolo_codigo" not in str(erro):
                 raise

@@ -88,3 +88,8 @@ from .modulos import produtos_lojista  # noqa: E402
 app.include_router(produtos_lojista.router, prefix="/api")
 PASTA_UPLOADS.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=PASTA_UPLOADS), name="uploads")
+
+# Avisos dentro do app (RF007)
+from .modulos import notificacoes  # noqa: E402
+
+app.include_router(notificacoes.router, prefix="/api")

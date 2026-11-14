@@ -50,7 +50,10 @@ def produto(api):
         "largura": 45, "altura": 90, "profundidade": 50, "estoque": 4,
     })
     assert r.status_code == 201, r.text
-    return r.json()
+    criado = r.json()
+    yield criado
+    # tira o produto de teste do catálogo para não sujar a demonstração
+    api.patch(f"/api/seller/products/{criado['id']}", headers=LOJISTA, json={"ativo": False})
 
 
 def test_criar_produto_aparece_no_catalogo(api, produto):
