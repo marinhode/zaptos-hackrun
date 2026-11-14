@@ -5,9 +5,4 @@
 window.ZAPTOS_CONFIG = {
   modo: 'api',
   apiUrl: 'http://localhost:8000/api',
-
-  // PROVISÓRIO até o login (RF015): usuários do seed usados nas chamadas.
-  // A API só aceita isso com DEMO_AUTH=1 no .env.
-  usuarioCliente: 1, // Ana Souza
-  usuarioLojista: 2, // Carlos, da Casa e Cia
 };

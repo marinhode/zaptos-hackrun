@@ -41,12 +41,22 @@ img/                  ícone do app e imagem padrão de produto
 | `#/perfil` | Perfil e acesso à área do lojista |
 | `#/lojista` | Painel do lojista: reservas, estoque e retiradas pendentes |
 | `#/lojista/validar` | Validar o código do cliente e confirmar a retirada |
+| `#/entrar` | Entrar (cliente ou lojista) |
+| `#/cadastro` | Criar conta de cliente |
+
+## Login
+
+- Reserva, pedidos e comprovante exigem login de **cliente**; o painel exige login de **lojista**. Sem login, o app leva para "Entrar" e, depois, volta para a tela onde a pessoa estava.
+- Com o perfil errado (ex.: cliente abrindo o painel), aparece "Área restrita" com a opção de entrar com outra conta.
+- O token fica no `localStorage` (`zaptos-token`) e vai em `Authorization: Bearer`. Quando vence, o app pede para entrar de novo.
+- Administrador: depois de entrar, vai para `admin.html`.
+- No modo demonstração não há login: tudo fica liberado.
 
 ## De onde vêm os dados
 
 `js/config.js` escolhe o modo:
 
-- **`modo: 'api'`** (padrão): usa a API Python em `apiUrl` (`http://localhost:8000/api`). A API precisa estar rodando com `DEMO_AUTH=1`, ver `backend/README.md`. O cliente e o lojista usados nas chamadas também ficam nesse arquivo, até o login existir.
+- **`modo: 'api'`** (padrão): usa a API Python em `apiUrl` (`http://localhost:8000/api`). Veja `backend/README.md` para subir a API.
 - **`modo: 'demo'`**: usa só os dados simulados deste navegador.
 
 Se o modo for `api` e o servidor estiver fora do ar, o app mostra um aviso e passa sozinho para a demonstração. Isso serve de plano B na apresentação.
@@ -66,8 +76,8 @@ Para recomeçar a demonstração: **Perfil → Restaurar dados de demonstração
 
 ## Ainda não incluído
 
-- Login: o usuário vem de `js/config.js`.
 - Pagamento real pelo PagBank: hoje o botão "Pagar" aprova direto.
 - Leitura do QR Code pela câmera: hoje o lojista digita o código.
-- Login, cadastro de produtos e mapa do shopping: aparecem como "em breve".
+- Cadastro de produtos e mapa do shopping: aparecem como "em breve".
+- Recuperar senha.
 - 3D/AR: evolução futura, conforme a documentação.

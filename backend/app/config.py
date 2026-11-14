@@ -28,8 +28,14 @@ class Config:
     # Endereços do front-end que podem chamar a API.
     cors_origins: tuple[str, ...] = _lista("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
 
-    # Identificação provisória pelo cabeçalho X-Usuario-Id, até o login (RF015)
-    # ficar pronto. NUNCA ligar fora do ambiente de desenvolvimento.
+    # Chave que assina os tokens de login. Gere uma longa e aleatória, ex.:
+    #   py -c "import secrets; print(secrets.token_urlsafe(48))"
+    secret_key: str = os.getenv("SECRET_KEY", "")
+    # Por quantas horas o login vale antes de pedir para entrar de novo.
+    token_horas: int = int(os.getenv("TOKEN_HORAS", "8"))
+
+    # Atalho de desenvolvimento/testes: aceita o cabeçalho X-Usuario-Id no lugar
+    # do login. NUNCA ligar fora do ambiente de desenvolvimento.
     demo_auth: bool = _booleano("DEMO_AUTH")
 
     # Enquanto a integração com o PagBank não existe, o pagamento é aprovado na hora.

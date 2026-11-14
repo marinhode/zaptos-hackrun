@@ -6,6 +6,7 @@
 
   const cfg = window.ZAPTOS_CONFIG || {};
   const BASE = String(cfg.apiUrl || '').replace(/\/$/, '');
+  const CHAVE_TOKEN = 'zaptos-token';
   let usuarioLogado = null;
 
   function erro(codigo, mensagem) {
@@ -14,8 +15,30 @@
     return e;
   }
 
-  // como: 'cliente' | 'lojista' | null (rota pública)
-  async function chamar(caminho, { metodo = 'GET', corpo, como = 'cliente', params } = {}) {
+  // ---------- sessão (token do login) ----------
+
+  function lerToken() {
+    try { return localStorage.getItem(CHAVE_TOKEN); } catch (e) { return null; }
+  }
+
+  function guardarToken(token) {
+    try {
+      if (token) localStorage.setItem(CHAVE_TOKEN, token);
+      else localStorage.removeItem(CHAVE_TOKEN);
+    } catch (e) { /* navegador sem armazenamento: a sessão dura só esta página */ }
+  }
+
+  // Erro de validação do FastAPI (422) vem como {"detail": [{"msg": ...}]}.
+  function mensagemDe(dados) {
+    if (dados && dados.mensagem) return dados.mensagem;
+    if (dados && Array.isArray(dados.detail) && dados.detail[0]) {
+      return String(dados.detail[0].msg || '').replace(/^Value error,\s*/i, '') || 'Confira os dados informados.';
+    }
+    return 'Algo deu errado. Tente de novo.';
+  }
+
+  // auth: envia o token do usuário logado (rotas de cliente e de lojista)
+  async function chamar(caminho, { metodo = 'GET', corpo, auth = true, params } = {}) {
     const url = new URL(BASE + caminho);
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
@@ -23,7 +46,8 @@
       });
     }
     const headers = {};
-    if (como) headers['X-Usuario-Id'] = String(como === 'lojista' ? cfg.usuarioLojista : cfg.usuarioCliente);
+    const token = lerToken();
+    if (auth && token) headers.Authorization = `Bearer ${token}`;
     if (corpo !== undefined) headers['Content-Type'] = 'application/json';
 
     let resp;
@@ -37,8 +61,10 @@
     let dados = null;
     try { dados = await resp.json(); } catch (e) { /* resposta sem corpo */ }
     if (!resp.ok) {
-      throw erro((dados && dados.codigo) || `ERRO_${resp.status}`,
-        (dados && dados.mensagem) || 'Algo deu errado. Tente de novo.');
+      const codigo = (dados && dados.codigo) || `ERRO_${resp.status}`;
+      // sessão vencida ou conta bloqueada: esquece o login salvo
+      if (resp.status === 401 && auth) { guardarToken(null); usuarioLogado = null; }
+      throw erro(codigo, mensagemDe(dados));
     }
     return dados;
   }
@@ -101,30 +127,60 @@
     modo: 'api',
 
     // Confere se a API e o banco estão no ar e carrega o usuário.
+    // Confere se a API e o banco estão no ar e recupera o login salvo, se houver.
     async iniciar() {
       const saude = await fetch(`${BASE}/health`).then((r) => r.json());
       if (saude.status !== 'ok') throw erro('SEM_BANCO', 'Banco de dados indisponível.');
-      usuarioLogado = await chamar('/me');
+      usuarioLogado = null;
+      if (lerToken()) {
+        try { usuarioLogado = await chamar('/me'); } catch (e) { /* login vencido: segue como visitante */ }
+      }
+    },
+
+    // ---------- login (RF002, RF015) ----------
+
+    // null = visitante; senão {id, nome, email, perfil}
+    usuario() {
+      return usuarioLogado;
+    },
+
+    async entrar(email, senha) {
+      const r = await chamar('/auth/login', { metodo: 'POST', corpo: { email, senha }, auth: false });
+      guardarToken(r.token);
+      usuarioLogado = r.usuario;
+      return r.usuario;
+    },
+
+    async cadastrar(dados) {
+      const r = await chamar('/auth/cadastro', { metodo: 'POST', corpo: dados, auth: false });
+      guardarToken(r.token);
+      usuarioLogado = r.usuario;
+      return r.usuario;
+    },
+
+    sair() {
+      guardarToken(null);
+      usuarioLogado = null;
     },
 
     cliente() {
-      const [nome, ...resto] = String((usuarioLogado && usuarioLogado.nome) || 'Cliente').split(' ');
+      const [nome, ...resto] = String((usuarioLogado && usuarioLogado.nome) || '').split(' ');
       return { id: usuarioLogado && usuarioLogado.id, nome, sobrenome: resto.join(' '), email: (usuarioLogado && usuarioLogado.email) || '' };
     },
 
-    categorias: () => chamar('/categories', { como: null }),
+    categorias: () => chamar('/categories', { auth: false }),
 
     async lojas() {
-      return (await chamar('/stores', { como: null })).map((l) => adaptarLoja(l));
+      return (await chamar('/stores', { auth: false })).map((l) => adaptarLoja(l));
     },
 
     async loja(id) {
-      return adaptarLoja(await chamar(`/stores/${id}`, { como: null }));
+      return adaptarLoja(await chamar(`/stores/${id}`, { auth: false }));
     },
 
     async produtos(f = {}) {
       const lista = await chamar('/products', {
-        como: null,
+        auth: false,
         params: {
           q: f.q,
           categoria: f.categoria,
@@ -138,7 +194,7 @@
     },
 
     async produto(id) {
-      return adaptarProduto(await chamar(`/products/${id}`, { como: null }));
+      return adaptarProduto(await chamar(`/products/${id}`, { auth: false }));
     },
 
     reservar: (produtoId) => chamar('/orders/checkout-reserve', { metodo: 'POST', corpo: { produtoId } }),
@@ -158,13 +214,13 @@
     },
 
     async lojaDoLojista() {
-      const lojas = await chamar('/seller/stores', { como: 'lojista' });
+      const lojas = await chamar('/seller/stores', {});
       if (!lojas.length) throw erro('SEM_LOJA', 'Nenhuma loja vinculada a este lojista.');
       return lojas[0].id;
     },
 
     async painelLoja(lojaId) {
-      const d = await chamar(`/seller/stores/${lojaId}/dashboard`, { como: 'lojista' });
+      const d = await chamar(`/seller/stores/${lojaId}/dashboard`, {});
       return {
         loja: adaptarLoja(d.loja),
         reservasHoje: d.reservasHoje,
@@ -174,19 +230,19 @@
     },
 
     async ajustarEstoque(lojaId, produtoId, delta) {
-      const r = await chamar(`/seller/products/${produtoId}/stock`, { metodo: 'PATCH', corpo: { delta }, como: 'lojista' });
+      const r = await chamar(`/seller/products/${produtoId}/stock`, { metodo: 'PATCH', corpo: { delta } });
       return r.estoque;
     },
 
     async validarCodigo(lojaId, codigo) {
       const c = encodeURIComponent(String(codigo || '').trim());
       if (!c) throw erro('CODIGO_VAZIO', 'Digite o código do cliente.');
-      return adaptarPedido(await chamar(`/seller/stores/${lojaId}/pickups/${c}`, { como: 'lojista' }));
+      return adaptarPedido(await chamar(`/seller/stores/${lojaId}/pickups/${c}`, {}));
     },
 
     async confirmarRetirada(lojaId, codigo) {
       const c = encodeURIComponent(String(codigo || '').trim());
-      return adaptarPedido(await chamar(`/seller/stores/${lojaId}/pickups/${c}/confirm`, { metodo: 'POST', como: 'lojista' }));
+      return adaptarPedido(await chamar(`/seller/stores/${lojaId}/pickups/${c}/confirm`, { metodo: 'POST' }));
     },
   };
 

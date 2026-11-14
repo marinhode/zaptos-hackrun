@@ -155,7 +155,42 @@
     [/^\/perfil$/, telaPerfil],
     [/^\/lojista$/, telaPainel],
     [/^\/lojista\/validar$/, telaValidar],
+    [/^\/entrar$/, telaEntrar],
+    [/^\/cadastro$/, telaCadastro],
   ];
+
+  // ---------- sessão e acesso por perfil (RF015, RNF006) ----------
+
+  // Telas que exigem login, e de qual perfil.
+  const ACESSO = [
+    [/^\/(reservar|pedido|pedidos)(\/|$)/, 'cliente'],
+    [/^\/lojista(\/|$)/, 'lojista'],
+  ];
+
+  // No modo demonstração não há login: tudo fica liberado.
+  const sessao = () => (API.usuario ? API.usuario() : { perfil: 'demo', nome: `${API.cliente().nome} ${API.cliente().sobrenome}` });
+  const NOME_PERFIL = { cliente: 'clientes', lojista: 'lojistas', admin: 'a administração', atendente: 'atendentes' };
+
+  function irParaEntrar(perfil) {
+    const volta = encodeURIComponent(location.hash || '#/');
+    ir(`#/entrar?volta=${volta}${perfil ? `&perfil=${perfil}` : ''}`, true);
+  }
+
+  function telaOutroPerfil(perfil) {
+    return {
+      titulo: 'Área restrita',
+      aba: perfil === 'cliente' ? 'pedidos' : null,
+      voltar: '#/',
+      html: vazio('alerta', `Esta área é para ${NOME_PERFIL[perfil] || perfil}`,
+        `Você entrou como ${sessao().nome}. Para continuar, saia e entre com outra conta.`,
+        '<button class="btn btn--primario" type="button" data-trocar>Entrar com outra conta</button>'),
+      montar: (raiz) => raiz.querySelector('[data-trocar]').addEventListener('click', () => {
+        API.sair();
+        lojaDoLojista = null;
+        irParaEntrar(perfil);
+      }),
+    };
+  }
 
   async function rotear() {
     aoSairFns.forEach((fn) => { try { fn(); } catch (e) { /* ignora */ } });
@@ -169,11 +204,22 @@
       if (m) { tela = fn; params = m.slice(1).map(Number); break; }
     }
 
+    const exigido = (ACESSO.find(([re]) => re.test(caminho)) || [])[1];
+    if (exigido) {
+      const s = sessao();
+      if (!s) { irParaEntrar(exigido); return; }
+      if (s.perfil !== 'demo' && s.perfil !== exigido) tela = () => telaOutroPerfil(exigido);
+    }
+
     const minha = ++navegacao;
     let v;
     try {
       v = await tela(params, consulta);
     } catch (err) {
+      if (err && (err.codigo === 'NAO_AUTENTICADO' || err.codigo === 'SESSAO_EXPIRADA')) {
+        if (minha === navegacao) irParaEntrar(exigido);
+        return;
+      }
       console.error(err);
       v = telaErro(err);
     }
@@ -218,7 +264,7 @@
     ]);
     return {
       titulo: 'Capim Dourado',
-      subtitulo: `${saudacao()}, ${API.cliente().nome}`,
+      subtitulo: API.cliente().nome ? `${saudacao()}, ${API.cliente().nome}` : `${saudacao()}!`,
       logo: true,
       aba: 'inicio',
       html: `
@@ -683,22 +729,44 @@
   // ---------- Perfil ----------
 
   async function telaPerfil() {
+    const s = sessao();
+    if (!s) {
+      return {
+        titulo: 'Perfil',
+        subtitulo: 'Entre para reservar e acompanhar pedidos',
+        aba: 'perfil',
+        html: `
+          ${vazio('sacola', 'Você ainda não entrou', 'Com uma conta você reserva produtos e retira na loja com QR Code.')}
+          <div class="pilha">
+            <a class="btn btn--primario btn--bloco" href="#/entrar?volta=${encodeURIComponent('#/perfil')}">Entrar</a>
+            <a class="btn btn--contorno btn--bloco" href="#/cadastro?volta=${encodeURIComponent('#/perfil')}">Criar conta</a>
+          </div>`,
+      };
+    }
+
     const c = API.cliente();
+    const iniciais = `${c.nome[0] || ''}${c.sobrenome ? c.sobrenome[0] : ''}`;
+    const atalhos = {
+      demo: '<a class="btn btn--contorno btn--bloco" href="#/pedidos">Meus pedidos</a><a class="btn btn--contorno btn--bloco" href="#/lojista">Área do lojista</a>',
+      cliente: '<a class="btn btn--contorno btn--bloco" href="#/pedidos">Meus pedidos</a>',
+      lojista: '<a class="btn btn--contorno btn--bloco" href="#/lojista">Painel da loja</a>',
+      admin: '<a class="btn btn--contorno btn--bloco" href="admin.html">Painel administrativo</a>',
+    };
     return {
       titulo: 'Perfil',
       subtitulo: 'Sua conta',
       aba: 'perfil',
       html: `
         <div class="card perfil">
-          <div class="avatar" aria-hidden="true">${esc(c.nome[0])}${esc(c.sobrenome[0])}</div>
+          <div class="avatar" aria-hidden="true">${esc(iniciais.toUpperCase())}</div>
           <div>
             <p class="item__nome">${esc(c.nome)} ${esc(c.sobrenome)}</p>
             <p class="suave">${esc(c.email)}</p>
           </div>
         </div>
         <div class="pilha pilha--topo">
-          <a class="btn btn--contorno btn--bloco" href="#/pedidos">Meus pedidos</a>
-          <a class="btn btn--contorno btn--bloco" href="#/lojista">Área do lojista</a>
+          ${atalhos[s.perfil] || ''}
+          ${API.sair ? '<button class="btn btn--link" type="button" data-sair>Sair da conta</button>' : ''}
         </div>
         ${API.restaurarDemo ? `
         <section class="secao">
@@ -710,12 +778,158 @@
           <div data-msg></div>
         </section>` : ''}`,
       montar: (raiz) => {
+        const sair = raiz.querySelector('[data-sair]');
+        if (sair) {
+          sair.addEventListener('click', () => {
+            API.sair();
+            lojaDoLojista = null;
+            ir('#/', true);
+          });
+        }
         const restaurar = raiz.querySelector('[data-restaurar]');
         if (!restaurar) return;
         restaurar.addEventListener('click', () => {
           API.restaurarDemo();
           raiz.querySelector('[data-msg]').innerHTML = '<p class="alerta alerta--ok" role="status">Dados restaurados.</p>';
         });
+      },
+    };
+  }
+
+  // ---------- Entrar e criar conta (RF002, RF015) ----------
+
+  function destinoDepoisDoLogin(usuario, consulta) {
+    const volta = consulta.get('volta');
+    if (volta && volta.startsWith('#/') && !volta.startsWith('#/entrar') && !volta.startsWith('#/cadastro')) return volta;
+    if (usuario.perfil === 'lojista') return '#/lojista';
+    return '#/';
+  }
+
+  function seguir(usuario, consulta) {
+    if (usuario.perfil === 'admin') { location.href = 'admin.html'; return; }
+    ir(destinoDepoisDoLogin(usuario, consulta), true);
+  }
+
+  async function telaEntrar(_, consulta) {
+    if (!API.entrar) {
+      return {
+        titulo: 'Entrar', aba: 'perfil', voltar: '#/',
+        html: vazio('check', 'Modo demonstração', 'Nesta versão não é preciso entrar: tudo já está liberado.',
+          '<a class="btn btn--primario" href="#/">Ir para o início</a>'),
+      };
+    }
+    const area = consulta.get('perfil') === 'lojista' ? 'Área do lojista' : 'Reserve e acompanhe seus pedidos';
+    const volta = consulta.get('volta') || '';
+    return {
+      titulo: 'Entrar',
+      subtitulo: area,
+      aba: 'perfil',
+      voltar: '#/',
+      html: `
+        <form class="pilha" data-entrar novalidate>
+          <div class="campo">
+            <label for="email">E-mail</label>
+            <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required>
+          </div>
+          <div class="campo">
+            <label for="senha">Senha</label>
+            <input id="senha" name="senha" type="password" autocomplete="current-password" required>
+          </div>
+          <div data-erro aria-live="polite"></div>
+          <button class="btn btn--primario btn--bloco" type="submit">Entrar</button>
+        </form>
+        <p class="suave" style="margin-top:24px;text-align:center">
+          Ainda não tem conta? <a href="#/cadastro${volta ? `?volta=${encodeURIComponent(volta)}` : ''}">Criar conta</a>
+        </p>
+        <p class="nota">Lojistas: a conta da loja é criada pela administração do shopping.</p>`,
+      montar: (raiz) => {
+        const form = raiz.querySelector('[data-entrar]');
+        const erroEl = raiz.querySelector('[data-erro]');
+        const botao = form.querySelector('button[type=submit]');
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const email = form.email.value.trim();
+          const senha = form.senha.value;
+          if (!email || !senha) {
+            erroEl.innerHTML = '<p class="alerta alerta--erro" role="alert">Preencha o e-mail e a senha.</p>';
+            return;
+          }
+          botao.disabled = true;
+          botao.textContent = 'Entrando…';
+          try {
+            const usuario = await API.entrar(email, senha);
+            lojaDoLojista = null;
+            seguir(usuario, consulta);
+          } catch (err) {
+            erroEl.innerHTML = `<p class="alerta alerta--erro" role="alert">${esc(err.message)}</p>`;
+            botao.disabled = false;
+            botao.textContent = 'Entrar';
+            form.senha.value = '';
+            form.senha.focus();
+          }
+        });
+        form.email.focus();
+      },
+    };
+  }
+
+  async function telaCadastro(_, consulta) {
+    if (!API.cadastrar) return telaEntrar(_, consulta);
+    return {
+      titulo: 'Criar conta',
+      subtitulo: 'Leva menos de um minuto',
+      aba: 'perfil',
+      voltar: '#/entrar',
+      html: `
+        <form class="pilha" data-cadastro novalidate>
+          <div class="campo">
+            <label for="nome">Nome completo</label>
+            <input id="nome" name="nome" autocomplete="name" required maxlength="120">
+          </div>
+          <div class="campo">
+            <label for="email">E-mail</label>
+            <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required>
+          </div>
+          <div class="campo">
+            <label for="senha">Senha</label>
+            <input id="senha" name="senha" type="password" autocomplete="new-password" minlength="8" maxlength="72" required
+                   aria-describedby="dica-senha">
+            <span class="suave pequeno" id="dica-senha">Pelo menos 8 caracteres.</span>
+          </div>
+          <div class="campo">
+            <label for="senha2">Repita a senha</label>
+            <input id="senha2" name="senha2" type="password" autocomplete="new-password" required>
+          </div>
+          <div data-erro aria-live="polite"></div>
+          <button class="btn btn--primario btn--bloco" type="submit">Criar conta</button>
+        </form>
+        <p class="nota">Seus dados são usados só para as reservas e o atendimento, conforme a LGPD.</p>`,
+      montar: (raiz) => {
+        const form = raiz.querySelector('[data-cadastro]');
+        const erroEl = raiz.querySelector('[data-erro]');
+        const botao = form.querySelector('button[type=submit]');
+        const falha = (texto) => { erroEl.innerHTML = `<p class="alerta alerta--erro" role="alert">${esc(texto)}</p>`; };
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const nome = form.nome.value.trim();
+          const email = form.email.value.trim();
+          const senha = form.senha.value;
+          if (nome.length < 2) return falha('Informe seu nome.');
+          if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return falha('Informe um e-mail válido.');
+          if (senha.length < 8) return falha('A senha precisa ter pelo menos 8 caracteres.');
+          if (senha !== form.senha2.value) return falha('As senhas não são iguais.');
+          botao.disabled = true;
+          botao.textContent = 'Criando conta…';
+          try {
+            const usuario = await API.cadastrar({ nome, email, senha });
+            seguir(usuario, consulta);
+          } catch (err) {
+            falha(err.message);
+            botao.disabled = false;
+            botao.textContent = 'Criar conta';
+          }
+        });
+        form.nome.focus();
       },
     };
   }

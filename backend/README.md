@@ -23,7 +23,7 @@ backend/
 ## Como rodar
 
 1. Suba o banco e carregue `db/schema.sql` e `db/seed.sql` (instruções em `db/README.md`).
-2. Copie `.env.example` (na raiz) para `.env` e preencha `DB_*`. Para testar sem login, use `DEMO_AUTH=1`.
+2. Copie `.env.example` (na raiz) para `.env` e preencha `DB_*` e `SECRET_KEY` (o comando para gerar a chave está no próprio arquivo).
 3. Na pasta `backend`:
 
 ```bash
@@ -42,6 +42,9 @@ Todas começam com `/api`.
 | Método | Rota | Quem | O que faz |
 | --- | --- | --- | --- |
 | GET | `/health` | todos | API e banco estão no ar? |
+| POST | `/auth/login` | todos | entra (`{"email", "senha"}`) e recebe o token |
+| POST | `/auth/cadastro` | todos | cria conta de **cliente** (`{"nome", "email", "senha"}`) e já entra |
+| GET | `/me` | logado | dados do usuário logado |
 | GET | `/categories` | todos | categorias |
 | GET | `/stores` · `/stores/{id}` | todos | lojas (vitrine) |
 | GET | `/products` · `/products/{id}` | todos | produtos; filtros `q`, `categoria`, `disponivel`, `preco_max`, `piso`, `loja_id` |
@@ -66,9 +69,18 @@ Erros de regra voltam como `{"codigo": "SEM_ESTOQUE", "mensagem": "..."}`, com o
 - **RN010:** a reserva vence em 15 minutos. A API chama `sp_liberar_reservas_expiradas` a cada minuto e antes de reservar ou listar pedidos.
 - **RN011:** no pagamento, a parte do lojista mais a comissão da categoria somam exatamente o total.
 
+## Login (RF002, RF015)
+
+- Senhas guardadas com **bcrypt**, nunca em texto.
+- O login devolve um **token JWT** assinado com `SECRET_KEY`, válido por `TOKEN_HORAS` (padrão 8 h). O front o envia em `Authorization: Bearer <token>`.
+- A cada requisição a API confere no banco se a conta continua ativa: um usuário bloqueado perde o acesso na hora, mesmo com token válido.
+- E-mail inexistente e senha errada recebem a mesma mensagem, para não revelar quais e-mails têm conta.
+- Só **clientes** se cadastram sozinhos. Contas de lojista, atendente e administrador são criadas pelo shopping.
+- As contas de teste do seed estão em `db/README.md`.
+- `DEMO_AUTH=1` aceita o cabeçalho `X-Usuario-Id` no lugar do token. É usado pelos testes; **nunca ligue fora do desenvolvimento**.
+
 ## Provisório
 
-- **Login (RF015):** ainda não existe. Com `DEMO_AUTH=1`, o usuário é informado pelo cabeçalho `X-Usuario-Id` (no seed: 1 = cliente Ana, 2 = lojista da Casa e Cia). **Não é seguro.** Use só em desenvolvimento; sem `DEMO_AUTH=1`, as rotas protegidas respondem 501.
 - **Pagamento:** com `PAGAMENTO_SIMULADO=1`, o pagamento é aprovado na hora. A integração com o PagBank (pedido com `charges.splits` e webhook com `x-authenticity-token`) é a próxima etapa.
 
 ## Testes

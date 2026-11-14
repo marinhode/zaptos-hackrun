@@ -3,6 +3,8 @@ uvicorn[standard]>=0.30
 pymysql>=1.1
 cryptography>=42      # necessário para o login padrão do MySQL 8 (caching_sha2_password)
 python-dotenv>=1.0
+bcrypt>=4.1           # hash das senhas
+PyJWT>=2.8            # token de login
 
 # testes
 pytest>=8

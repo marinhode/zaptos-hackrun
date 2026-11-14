@@ -1,9 +1,9 @@
-"""Identificação do usuário.
+"""Identificação do usuário logado (RF015) e controle de acesso por perfil (RNF006).
 
-PROVISÓRIO: enquanto o login (RF015) não existe, o usuário é identificado pelo
-cabeçalho X-Usuario-Id, e só quando DEMO_AUTH=1 no .env. Isso não é seguro
-(qualquer um pode se passar por outro usuário) e existe apenas para o time
-testar o fluxo em desenvolvimento. O login vai substituir esta função.
+O front envia o token recebido no login no cabeçalho:
+    Authorization: Bearer <token>
+
+Só em desenvolvimento (DEMO_AUTH=1) também aceita X-Usuario-Id, usado pelos testes.
 """
 from typing import Callable
 
@@ -12,21 +12,33 @@ from fastapi import Depends, Header
 from .config import config
 from .db import transacao
 from .erros import ErroNegocio
+from .seguranca import ler_token
 
 
-def usuario_atual(x_usuario_id: int | None = Header(default=None)) -> dict:
-    if not config.demo_auth:
-        raise ErroNegocio(501, "LOGIN_PENDENTE", "O login ainda não foi implementado (RF015).")
-    if x_usuario_id is None:
-        raise ErroNegocio(401, "NAO_AUTENTICADO", "Informe o cabeçalho X-Usuario-Id.")
+def usuario_atual(
+    authorization: str | None = Header(default=None),
+    x_usuario_id: int | None = Header(default=None),
+) -> dict:
+    usuario_id = None
+    if authorization and authorization.lower().startswith("bearer "):
+        usuario_id = ler_token(authorization[7:].strip())
+        if usuario_id is None:
+            raise ErroNegocio(401, "SESSAO_EXPIRADA", "Sua sessão expirou. Entre de novo.")
+    elif x_usuario_id is not None and config.demo_auth:
+        usuario_id = x_usuario_id
+
+    if usuario_id is None:
+        raise ErroNegocio(401, "NAO_AUTENTICADO", "Entre na sua conta para continuar.")
+
+    # Consulta o banco a cada requisição: usuário bloqueado perde o acesso na hora.
     with transacao() as cur:
         cur.execute(
             "SELECT id, nome, email, perfil FROM usuario WHERE id = %s AND ativo",
-            (x_usuario_id,),
+            (usuario_id,),
         )
         usuario = cur.fetchone()
     if not usuario:
-        raise ErroNegocio(401, "NAO_AUTENTICADO", "Usuário não encontrado ou inativo.")
+        raise ErroNegocio(401, "NAO_AUTENTICADO", "Conta não encontrada ou bloqueada.")
     return usuario
 
 

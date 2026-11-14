@@ -47,7 +47,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=list(config.cors_origins),
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
-    allow_headers=["Content-Type", "X-Usuario-Id"],
+    allow_headers=["Content-Type", "Authorization", "X-Usuario-Id"],
 )
 
 
@@ -73,3 +73,8 @@ def saude() -> JSONResponse:
 
 for modulo in (catalogo, reservas, pedidos, lojista, usuarios):
     app.include_router(modulo.router, prefix="/api")
+
+# Login e cadastro (RF002, RF015)
+from .modulos import autenticacao  # noqa: E402
+
+app.include_router(autenticacao.router, prefix="/api")
