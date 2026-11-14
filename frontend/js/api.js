@@ -102,10 +102,64 @@
 
   // ---------- funções públicas ----------
 
+  // Contas de teste da demonstração (sem servidor): o perfil decide o que cada uma vê.
+  const CONTAS = {
+    'cliente@zaptos.dev': { senha: 'cliente123', id: 1, nome: 'Ana Souza', perfil: 'cliente' },
+    'lojista@zaptos.dev': { senha: 'lojista123', id: 2, nome: 'Carlos Lojista', perfil: 'lojista' },
+    'admin@zaptos.dev': { senha: 'admin123', id: 3, nome: 'Admin Capim Dourado', perfil: 'admin' },
+  };
+  const CHAVE_LOGIN = 'zaptos-demo-login';
+  let logado = null;
+  try { logado = JSON.parse(localStorage.getItem(CHAVE_LOGIN)); } catch (e) { logado = null; }
+
   const API = {
     modo: 'demo',
 
+    usuario() {
+      return logado;
+    },
+
+    async entrar(email, senha) {
+      await espera(300);
+      const conta = CONTAS[String(email).trim().toLowerCase()];
+      if (!conta || conta.senha !== senha) throw erro('CREDENCIAIS_INVALIDAS', 'E-mail ou senha incorretos.');
+      logado = { id: conta.id, nome: conta.nome, email: String(email).trim().toLowerCase(), perfil: conta.perfil };
+      try { localStorage.setItem(CHAVE_LOGIN, JSON.stringify(logado)); } catch (e) { /* ignora */ }
+      return logado;
+    },
+
+    async cadastrar(dados) {
+      await espera(300);
+      logado = { id: 1, nome: dados.nome, email: dados.email, perfil: 'cliente' };
+      try { localStorage.setItem(CHAVE_LOGIN, JSON.stringify(logado)); } catch (e) { /* ignora */ }
+      return logado;
+    },
+
+    sair() {
+      logado = null;
+      try { localStorage.removeItem(CHAVE_LOGIN); } catch (e) { /* ignora */ }
+    },
+
+    // Resumo para a tela do administrador na demonstração (comissão de 10%).
+    async resumoAdmin() {
+      await espera();
+      liberarExpiradas();
+      const pagos = st.pedidos.filter((p) => p.status === 'aprovado' || p.status === 'retirado');
+      const total = pagos.reduce((s, p) => s + p.valor, 0);
+      return {
+        vendas: pagos.length,
+        total,
+        comissao: Math.round(total * 10) / 100,
+        lojas: D.lojas.length,
+        pedidos: st.pedidos.map(completarPedido),
+      };
+    },
+
     cliente() {
+      if (logado) {
+        const [nome, ...resto] = logado.nome.split(' ');
+        return { id: logado.id, nome, sobrenome: resto.join(' '), email: logado.email };
+      }
       return D.cliente;
     },
 

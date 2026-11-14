@@ -10,8 +10,10 @@
 //     usa a API em http://localhost:8000/api.
 (function () {
   const separado = location.port === '5173' || location.protocol === 'file:';
+  // Vercel (e outras hospedagens só de site) não têm a API Python: usa a demonstração.
+  const soSite = /vercel\.app$|netlify\.app$|github\.io$/.test(location.hostname);
   window.ZAPTOS_CONFIG = {
-    modo: 'api',
+    modo: soSite ? 'demo' : 'api',
     apiUrl: separado ? 'http://localhost:8000/api' : `${location.origin}/api`,
   };
 })();
